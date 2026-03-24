@@ -74,6 +74,50 @@ function getAttendanceEntryKey(employeeId: string, dateKey: string): string {
     return `${employeeId || 'unassigned'}:${dateKey}`;
 }
 
+function getMinutesFromTime(value: string): number | null {
+    if (!/^\d{2}:\d{2}$/.test(value)) {
+        return null;
+    }
+
+    const [hours, minutes] = value.split(':').map(Number);
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+        return null;
+    }
+
+    return hours * 60 + minutes;
+}
+
+function getWorkedMinutes(timeIn: string, timeOut: string): number | null {
+    const timeInMinutes = getMinutesFromTime(timeIn);
+    const timeOutMinutes = getMinutesFromTime(timeOut);
+
+    if (timeInMinutes === null || timeOutMinutes === null) {
+        return null;
+    }
+
+    if (timeOutMinutes >= timeInMinutes) {
+        return timeOutMinutes - timeInMinutes;
+    }
+
+    return 24 * 60 - timeInMinutes + timeOutMinutes;
+}
+
+function formatWorkedDuration(totalMinutes: number | null): string {
+    if (totalMinutes === null) {
+        return '--';
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (minutes === 0) {
+        return `${hours}h`;
+    }
+
+    return `${hours}h ${minutes}m`;
+}
+
 function buildMonthDays(
     year: number,
     month: number,
@@ -394,11 +438,17 @@ export default function Calculate({ employees }: CalculatePageProps) {
                                                     timeIn: '',
                                                     timeOut: '',
                                                 };
+                                            const workedMinutes = getWorkedMinutes(
+                                                entry.timeIn,
+                                                entry.timeOut,
+                                            );
+                                            const workedDuration =
+                                                formatWorkedDuration(workedMinutes);
 
                                             return (
                                                 <div
                                                     key={day.key}
-                                                    className="grid gap-3 rounded-lg border p-4 md:grid-cols-[140px_minmax(0,1fr)_minmax(0,1fr)] md:items-end"
+                                                    className="grid gap-3 rounded-lg border p-4 md:grid-cols-[140px_minmax(0,1fr)_minmax(0,1fr)_140px] md:items-end"
                                                 >
                                                     <div>
                                                         <p className="font-medium text-foreground">
@@ -446,6 +496,20 @@ export default function Calculate({ employees }: CalculatePageProps) {
                                                                     event.target.value,
                                                                 )
                                                             }
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label
+                                                            htmlFor={`hours-worked-${day.key}`}
+                                                        >
+                                                            Hours worked
+                                                        </Label>
+                                                        <Input
+                                                            id={`hours-worked-${day.key}`}
+                                                            type="text"
+                                                            value={workedDuration}
+                                                            readOnly
                                                         />
                                                     </div>
                                                 </div>
