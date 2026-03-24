@@ -42,6 +42,8 @@ type EmployeeRow = {
     middleName: string | null;
     lastName: string;
     fullName: string;
+    hourlyRate: string;
+    dailyRate: string;
     schedule: {
         groups: EmployeeScheduleGroup[];
     };
@@ -67,6 +69,8 @@ type EmployeeFormData = {
     first_name: string;
     middle_name: string;
     last_name: string;
+    hourly_rate: string;
+    daily_rate: string;
     schedule_groups: ScheduleGroupForm[];
 };
 
@@ -97,6 +101,8 @@ const defaultEmployeeFormData = (): EmployeeFormData => ({
     first_name: '',
     middle_name: '',
     last_name: '',
+    hourly_rate: '',
+    daily_rate: '',
     schedule_groups: [createScheduleGroup([1, 2, 3, 4, 5])],
 });
 
@@ -106,6 +112,8 @@ const employeeToFormData = (employee: EmployeeRow): EmployeeFormData => ({
     first_name: employee.firstName,
     middle_name: employee.middleName ?? '',
     last_name: employee.lastName,
+    hourly_rate: employee.hourlyRate,
+    daily_rate: employee.dailyRate,
     schedule_groups: employee.schedule.groups.map((group) => ({
         days: [...group.days],
         start_time: group.startTime.slice(0, 5),
@@ -384,6 +392,56 @@ export default function Employees({
                                     />
                                     <InputError
                                         message={form.errors.last_name}
+                                    />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="hourly_rate">
+                                        Hourly rate *
+                                    </Label>
+                                    <Input
+                                        id="hourly_rate"
+                                        type="number"
+                                        inputMode="decimal"
+                                        min="0"
+                                        step="0.01"
+                                        value={form.data.hourly_rate}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'hourly_rate',
+                                                event.currentTarget.value,
+                                            )
+                                        }
+                                        placeholder="100.00"
+                                        aria-invalid={!!form.errors.hourly_rate}
+                                    />
+                                    <InputError
+                                        message={form.errors.hourly_rate}
+                                    />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="daily_rate">
+                                        Daily rate *
+                                    </Label>
+                                    <Input
+                                        id="daily_rate"
+                                        type="number"
+                                        inputMode="decimal"
+                                        min="0"
+                                        step="0.01"
+                                        value={form.data.daily_rate}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'daily_rate',
+                                                event.currentTarget.value,
+                                            )
+                                        }
+                                        placeholder="800.00"
+                                        aria-invalid={!!form.errors.daily_rate}
+                                    />
+                                    <InputError
+                                        message={form.errors.daily_rate}
                                     />
                                 </div>
                             </div>
@@ -718,3 +776,4 @@ export default function Employees({
         </AppLayout>
     );
 }
+

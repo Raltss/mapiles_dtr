@@ -18,6 +18,8 @@ class StoreEmployeeRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
+            'hourly_rate' => ['required', 'numeric', 'min:0'],
+            'daily_rate' => ['required', 'numeric', 'min:0'],
             'employment_end_date' => ['nullable', 'date'],
             'schedule_groups' => ['required', 'array', 'min:1'],
             'schedule_groups.*.days' => ['required', 'array', 'min:1'],

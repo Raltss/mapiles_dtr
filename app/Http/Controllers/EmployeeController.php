@@ -73,6 +73,8 @@ class EmployeeController extends Controller
                     $employee->middle_name,
                     $employee->last_name,
                 ])->filter()->implode(' '),
+                'hourlyRate' => $employee->hourly_rate !== null ? (string) $employee->hourly_rate : '',
+                'dailyRate' => $employee->daily_rate !== null ? (string) $employee->daily_rate : '',
                 'schedule' => [
                     'groups' => $scheduleGroups,
                 ],
@@ -102,6 +104,8 @@ class EmployeeController extends Controller
             'first_name' => $validated['first_name'],
             'middle_name' => $validated['middle_name'],
             'last_name' => $validated['last_name'],
+            'hourly_rate' => $validated['hourly_rate'],
+            'daily_rate' => $validated['daily_rate'],
             'employment_end_date' => $validated['employment_end_date'] ?? null,
             'scheduled_start_time' => $primarySchedule['start_time'],
             'scheduled_end_time' => $primarySchedule['end_time'],
