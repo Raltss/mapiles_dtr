@@ -54,6 +54,8 @@ class EmployeeFactory extends Factory
             'first_name' => fake()->firstName(),
             'middle_name' => fake()->optional()->firstName(),
             'last_name' => fake()->lastName(),
+            'hourly_rate' => '100.00',
+            'daily_rate' => '800.00',
             'employment_end_date' => null,
             'scheduled_start_time' => '08:00:00',
             'scheduled_end_time' => '17:00:00',

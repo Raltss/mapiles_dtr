@@ -9,6 +9,8 @@ test('employees table includes profile and schedule fields', function () {
             'first_name',
             'middle_name',
             'last_name',
+            'hourly_rate',
+            'daily_rate',
             'employment_end_date',
             'scheduled_start_time',
             'scheduled_end_time',
@@ -34,12 +36,16 @@ test('employees can be stored with a fixed weekly schedule', function () {
 
     $this->assertDatabaseHas('employees', [
         'id' => $employee->id,
+        'hourly_rate' => '100.00',
+        'daily_rate' => '800.00',
         'scheduled_start_time' => '08:00:00',
         'scheduled_end_time' => '17:00:00',
         'grace_period_minutes' => 5,
     ]);
 
-    expect($employee->fresh()->work_days)->toBe([1, 2, 3, 4, 5])
+    expect($employee->fresh()->hourly_rate)->toBe('100.00')
+        ->and($employee->fresh()->daily_rate)->toBe('800.00')
+        ->and($employee->fresh()->work_days)->toBe([1, 2, 3, 4, 5])
         ->and($employee->fresh()->weekly_schedule)->toBe([
             ['day' => 1, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],
             ['day' => 2, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],

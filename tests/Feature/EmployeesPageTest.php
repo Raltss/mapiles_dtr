@@ -21,6 +21,8 @@ test('authenticated users can visit the employees page', function () {
         'first_name' => 'Alice',
         'middle_name' => null,
         'last_name' => 'Adams',
+        'hourly_rate' => '125.50',
+        'daily_rate' => '1004.00',
         'scheduled_start_time' => '09:00:00',
         'scheduled_end_time' => '18:00:00',
         'grace_period_minutes' => 5,
@@ -39,6 +41,8 @@ test('authenticated users can visit the employees page', function () {
         'first_name' => 'Brian',
         'middle_name' => null,
         'last_name' => 'Brown',
+        'hourly_rate' => '100.00',
+        'daily_rate' => '800.00',
         'scheduled_start_time' => '08:00:00',
         'scheduled_end_time' => '17:00:00',
         'grace_period_minutes' => 5,
@@ -64,8 +68,12 @@ test('authenticated users can visit the employees page', function () {
             ->where('employees.0.firstName', 'Alice')
             ->where('employees.0.lastName', 'Adams')
             ->where('employees.0.fullName', 'Alice Adams')
+            ->where('employees.0.hourlyRate', '125.50')
+            ->where('employees.0.dailyRate', '1004.00')
             ->where('employees.0.schedule.groups.0.days', [1, 2, 3, 4, 5])
             ->where('employees.0.schedule.groups.1.days', [6])
+            ->where('employees.1.hourlyRate', '100.00')
+            ->where('employees.1.dailyRate', '800.00')
             ->where('employees.1.schedule.groups.0.endTime', '17:00:00'),
         );
 });
@@ -77,6 +85,8 @@ test('authenticated users can add employees with grouped schedule blocks', funct
         'first_name' => 'Carla',
         'middle_name' => '',
         'last_name' => 'Reyes',
+        'hourly_rate' => '112.50',
+        'daily_rate' => '900.00',
         'schedule_groups' => [
             ['days' => [1, 2, 3, 4, 5], 'start_time' => '09:00', 'end_time' => '18:00'],
             ['days' => [6], 'start_time' => '09:00', 'end_time' => '17:00'],
@@ -87,7 +97,9 @@ test('authenticated users can add employees with grouped schedule blocks', funct
 
     $employee = Employee::query()->firstOrFail();
 
-    expect($employee->scheduled_start_time)->toBe('09:00:00')
+    expect($employee->hourly_rate)->toBe('112.50')
+        ->and($employee->daily_rate)->toBe('900.00')
+        ->and($employee->scheduled_start_time)->toBe('09:00:00')
         ->and($employee->scheduled_end_time)->toBe('18:00:00')
         ->and($employee->grace_period_minutes)->toBe(5)
         ->and($employee->work_days)->toBe([1, 2, 3, 4, 5, 6])
@@ -112,6 +124,8 @@ test('authenticated users can add employees with grouped schedule blocks', funct
             ->has('employees', 1)
             ->where('employees.0.firstName', 'Carla')
             ->where('employees.0.fullName', 'Carla Reyes')
+            ->where('employees.0.hourlyRate', '112.50')
+            ->where('employees.0.dailyRate', '900.00')
             ->where('employees.0.schedule.groups.0.days', [1, 2, 3, 4, 5])
             ->where('employees.0.schedule.groups.1.days', [6])
             ->where('employees.0.schedule.groups.1.endTime', '17:00:00'),
@@ -125,6 +139,8 @@ test('authenticated users can update employees', function () {
         'first_name' => 'Dino',
         'middle_name' => '',
         'last_name' => 'Santos',
+        'hourly_rate' => '95.00',
+        'daily_rate' => '760.00',
         'scheduled_start_time' => '09:00:00',
         'scheduled_end_time' => '18:00:00',
         'grace_period_minutes' => 5,
@@ -142,6 +158,8 @@ test('authenticated users can update employees', function () {
         'first_name' => 'Dina',
         'middle_name' => 'Lopez',
         'last_name' => 'Reyes',
+        'hourly_rate' => '130.25',
+        'daily_rate' => '1042.00',
         'schedule_groups' => [
             ['days' => [1, 2, 3, 4, 5], 'start_time' => '10:00', 'end_time' => '19:00'],
             ['days' => [6], 'start_time' => '09:00', 'end_time' => '15:00'],
@@ -155,6 +173,8 @@ test('authenticated users can update employees', function () {
     expect($employee->first_name)->toBe('Dina')
         ->and($employee->middle_name)->toBe('Lopez')
         ->and($employee->last_name)->toBe('Reyes')
+        ->and($employee->hourly_rate)->toBe('130.25')
+        ->and($employee->daily_rate)->toBe('1042.00')
         ->and($employee->scheduled_start_time)->toBe('10:00:00')
         ->and($employee->scheduled_end_time)->toBe('19:00:00')
         ->and($employee->work_days)->toBe([1, 2, 3, 4, 5, 6])
@@ -179,6 +199,8 @@ test('authenticated users can update employees', function () {
             ->where('employees.0.middleName', 'Lopez')
             ->where('employees.0.lastName', 'Reyes')
             ->where('employees.0.fullName', 'Dina Lopez Reyes')
+            ->where('employees.0.hourlyRate', '130.25')
+            ->where('employees.0.dailyRate', '1042.00')
             ->where('employees.0.schedule.groups.1.endTime', '15:00:00'),
         );
 });
@@ -206,4 +228,3 @@ test('authenticated users can delete employees', function () {
             ->has('employees', 0),
         );
 });
-

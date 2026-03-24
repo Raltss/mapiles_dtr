@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'first_name',
     'middle_name',
     'last_name',
+    'hourly_rate',
+    'daily_rate',
     'employment_end_date',
     'scheduled_start_time',
     'scheduled_end_time',
@@ -32,6 +34,8 @@ class Employee extends Model
     protected function casts(): array
     {
         return [
+            'hourly_rate' => 'decimal:2',
+            'daily_rate' => 'decimal:2',
             'employment_end_date' => 'date',
             'work_days' => 'array',
             'weekly_schedule' => 'array',
