@@ -9,19 +9,36 @@ test('calculate page requires authentication', function () {
         ->assertRedirect(route('login'));
 });
 
-test('authenticated users can view employees in the calculate dropdown', function () {
+test('authenticated users can view employees and scheduled work days in the calculate dropdown', function () {
     $user = User::factory()->create();
 
     Employee::factory()->create([
         'first_name' => 'Ana',
         'middle_name' => 'Marie',
         'last_name' => 'Lopez',
+        'work_days' => [1, 2, 3, 4, 5],
+        'weekly_schedule' => [
+            ['day' => 1, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],
+            ['day' => 2, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],
+            ['day' => 3, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],
+            ['day' => 4, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],
+            ['day' => 5, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],
+        ],
     ]);
 
     Employee::factory()->create([
         'first_name' => 'Ben',
         'middle_name' => null,
         'last_name' => 'Reyes',
+        'work_days' => [1, 2, 3, 4, 5, 6],
+        'weekly_schedule' => [
+            ['day' => 1, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+            ['day' => 2, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+            ['day' => 3, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+            ['day' => 4, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+            ['day' => 5, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+            ['day' => 6, 'start_time' => '09:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 5],
+        ],
     ]);
 
     $this->actingAs($user)
@@ -31,6 +48,8 @@ test('authenticated users can view employees in the calculate dropdown', functio
             ->component('calculate/index')
             ->has('employees', 2)
             ->where('employees.0.fullName', 'Ana Marie Lopez')
-            ->where('employees.1.fullName', 'Ben Reyes'),
+            ->where('employees.0.workDays', [1, 2, 3, 4, 5])
+            ->where('employees.1.fullName', 'Ben Reyes')
+            ->where('employees.1.workDays', [1, 2, 3, 4, 5, 6]),
         );
 });
