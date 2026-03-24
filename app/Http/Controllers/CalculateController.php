@@ -8,6 +8,8 @@ use Inertia\Response;
 
 class CalculateController extends Controller
 {
+    private const WORK_DAYS_PER_MONTH = 26;
+
     public function index(): Response
     {
         $employees = Employee::query()
@@ -32,6 +34,7 @@ class CalculateController extends Controller
                         $employee->middle_name,
                         $employee->last_name,
                     ])->filter()->implode(' '),
+                    'dailyRate' => $this->resolvedDailyRate($employee),
                     'workDays' => $workDays
                         ->unique()
                         ->sort()
@@ -45,5 +48,23 @@ class CalculateController extends Controller
         return Inertia::render('calculate/index', [
             'employees' => $employees,
         ]);
+    }
+
+    protected function resolvedDailyRate(Employee $employee): string
+    {
+        if ($employee->daily_rate !== null) {
+            return (string) $employee->daily_rate;
+        }
+
+        if ($employee->monthly_rate !== null) {
+            return number_format(
+                round((float) $employee->monthly_rate / self::WORK_DAYS_PER_MONTH, 2),
+                2,
+                '.',
+                '',
+            );
+        }
+
+        return '';
     }
 }
