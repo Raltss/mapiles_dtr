@@ -33,6 +33,11 @@ const mainNavItems: NavItem[] = [
         href: calculateIndex(),
         icon: Calculator,
     },
+    {
+        title: 'Summary',
+        href: calculateIndex(),
+        icon: Calculator,
+    },
 ];
 
 export function AppSidebar() {
