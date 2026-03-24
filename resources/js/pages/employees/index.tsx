@@ -42,8 +42,9 @@ type EmployeeRow = {
     middleName: string | null;
     lastName: string;
     fullName: string;
-    hourlyRate: string;
+    monthlyRate: string;
     dailyRate: string;
+    hourlyRate: string;
     schedule: {
         groups: EmployeeScheduleGroup[];
     };
@@ -69,8 +70,7 @@ type EmployeeFormData = {
     first_name: string;
     middle_name: string;
     last_name: string;
-    hourly_rate: string;
-    daily_rate: string;
+    monthly_rate: string;
     schedule_groups: ScheduleGroupForm[];
 };
 
@@ -91,6 +91,35 @@ const dayOptions = [
     { value: 0, label: 'Sunday', shortLabel: 'Sun' },
 ];
 
+const workDaysPerMonth = 26;
+const workHoursPerDay = 8;
+
+function getDerivedRates(monthlyRate: string) {
+    if (monthlyRate.trim() === '') {
+        return {
+            dailyRate: '',
+            hourlyRate: '',
+        };
+    }
+
+    const parsedMonthlyRate = Number(monthlyRate);
+
+    if (!Number.isFinite(parsedMonthlyRate)) {
+        return {
+            dailyRate: '',
+            hourlyRate: '',
+        };
+    }
+
+    const dailyRate = (parsedMonthlyRate / workDaysPerMonth).toFixed(2);
+    const hourlyRate = (Number(dailyRate) / workHoursPerDay).toFixed(2);
+
+    return {
+        dailyRate,
+        hourlyRate,
+    };
+}
+
 const createScheduleGroup = (days: number[] = []): ScheduleGroupForm => ({
     days,
     start_time: '09:00',
@@ -101,8 +130,7 @@ const defaultEmployeeFormData = (): EmployeeFormData => ({
     first_name: '',
     middle_name: '',
     last_name: '',
-    hourly_rate: '',
-    daily_rate: '',
+    monthly_rate: '',
     schedule_groups: [createScheduleGroup([1, 2, 3, 4, 5])],
 });
 
@@ -112,8 +140,7 @@ const employeeToFormData = (employee: EmployeeRow): EmployeeFormData => ({
     first_name: employee.firstName,
     middle_name: employee.middleName ?? '',
     last_name: employee.lastName,
-    hourly_rate: employee.hourlyRate,
-    daily_rate: employee.dailyRate,
+    monthly_rate: employee.monthlyRate,
     schedule_groups: employee.schedule.groups.map((group) => ({
         days: [...group.days],
         start_time: group.startTime.slice(0, 5),
@@ -182,6 +209,7 @@ export default function Employees({
     const form = useForm<EmployeeFormData>(defaultEmployeeFormData());
     const errors = form.errors as Record<string, string | undefined>;
     const isEditingEmployee = editingEmployee !== null;
+    const computedRates = getDerivedRates(form.data.monthly_rate);
 
     const resetEmployeeForm = () => {
         setEditingEmployee(null);
@@ -396,54 +424,60 @@ export default function Employees({
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="hourly_rate">
-                                        Hourly rate *
+                                    <Label htmlFor="monthly_rate">
+                                        Monthly rate *
                                     </Label>
                                     <Input
-                                        id="hourly_rate"
+                                        id="monthly_rate"
                                         type="number"
                                         inputMode="decimal"
                                         min="0"
                                         step="0.01"
-                                        value={form.data.hourly_rate}
+                                        value={form.data.monthly_rate}
                                         onChange={(event) =>
                                             form.setData(
-                                                'hourly_rate',
+                                                'monthly_rate',
                                                 event.currentTarget.value,
                                             )
                                         }
-                                        placeholder="100.00"
-                                        aria-invalid={!!form.errors.hourly_rate}
+                                        placeholder="20800.00"
+                                        aria-invalid={!!form.errors.monthly_rate}
                                     />
                                     <InputError
-                                        message={form.errors.hourly_rate}
+                                        message={form.errors.monthly_rate}
                                     />
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="daily_rate">
-                                        Daily rate *
+                                    <Label htmlFor="daily_rate_preview">
+                                        Daily rate
                                     </Label>
                                     <Input
-                                        id="daily_rate"
-                                        type="number"
-                                        inputMode="decimal"
-                                        min="0"
-                                        step="0.01"
-                                        value={form.data.daily_rate}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'daily_rate',
-                                                event.currentTarget.value,
-                                            )
-                                        }
-                                        placeholder="800.00"
-                                        aria-invalid={!!form.errors.daily_rate}
-                                    />
-                                    <InputError
-                                        message={form.errors.daily_rate}
+                                        id="daily_rate_preview"
+                                        type="text"
+                                        value={computedRates.dailyRate}
+                                        placeholder="Auto-calculated"
+                                        readOnly
                                     />
                                 </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="hourly_rate_preview">
+                                        Hourly rate
+                                    </Label>
+                                    <Input
+                                        id="hourly_rate_preview"
+                                        type="text"
+                                        value={computedRates.hourlyRate}
+                                        placeholder="Auto-calculated"
+                                        readOnly
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                                Daily rate is monthly rate divided by 26. Hourly
+                                rate is daily rate divided by 8.
                             </div>
 
                             <div className="space-y-4 rounded-xl border p-4">

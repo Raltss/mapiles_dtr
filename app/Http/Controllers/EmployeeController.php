@@ -11,6 +11,8 @@ use Inertia\Response;
 class EmployeeController extends Controller
 {
     private const FIXED_GRACE_PERIOD_MINUTES = 5;
+    private const WORK_DAYS_PER_MONTH = 26;
+    private const WORK_HOURS_PER_DAY = 8;
 
     public function index(): Response
     {
@@ -62,6 +64,13 @@ class EmployeeController extends Controller
                 ])
                 ->values()
                 ->all();
+            $monthlyRate = $this->resolvedMonthlyRate($employee);
+            $dailyRate = $monthlyRate !== ''
+                ? $this->calculateDailyRate($monthlyRate)
+                : ($employee->daily_rate !== null ? (string) $employee->daily_rate : '');
+            $hourlyRate = $dailyRate !== ''
+                ? $this->calculateHourlyRate($dailyRate)
+                : ($employee->hourly_rate !== null ? (string) $employee->hourly_rate : '');
 
             return [
                 'id' => $employee->id,
@@ -73,8 +82,9 @@ class EmployeeController extends Controller
                     $employee->middle_name,
                     $employee->last_name,
                 ])->filter()->implode(' '),
-                'hourlyRate' => $employee->hourly_rate !== null ? (string) $employee->hourly_rate : '',
-                'dailyRate' => $employee->daily_rate !== null ? (string) $employee->daily_rate : '',
+                'monthlyRate' => $monthlyRate,
+                'dailyRate' => $dailyRate,
+                'hourlyRate' => $hourlyRate,
                 'schedule' => [
                     'groups' => $scheduleGroups,
                 ],
@@ -99,13 +109,17 @@ class EmployeeController extends Controller
     {
         $weeklySchedule = $this->expandScheduleGroups($validated['schedule_groups']);
         $primarySchedule = $weeklySchedule[0];
+        $monthlyRate = $this->formatRate((float) $validated['monthly_rate']);
+        $dailyRate = $this->calculateDailyRate($monthlyRate);
+        $hourlyRate = $this->calculateHourlyRate($dailyRate);
 
         $employee->fill([
             'first_name' => $validated['first_name'],
             'middle_name' => $validated['middle_name'],
             'last_name' => $validated['last_name'],
-            'hourly_rate' => $validated['hourly_rate'],
-            'daily_rate' => $validated['daily_rate'],
+            'monthly_rate' => $monthlyRate,
+            'hourly_rate' => $hourlyRate,
+            'daily_rate' => $dailyRate,
             'employment_end_date' => $validated['employment_end_date'] ?? null,
             'scheduled_start_time' => $primarySchedule['start_time'],
             'scheduled_end_time' => $primarySchedule['end_time'],
@@ -115,6 +129,46 @@ class EmployeeController extends Controller
         ]);
 
         $employee->save();
+    }
+
+    protected function resolvedMonthlyRate(Employee $employee): string
+    {
+        if ($employee->monthly_rate !== null) {
+            return (string) $employee->monthly_rate;
+        }
+
+        if ($employee->daily_rate !== null) {
+            return $this->formatRate((float) $employee->daily_rate * self::WORK_DAYS_PER_MONTH);
+        }
+
+        if ($employee->hourly_rate !== null) {
+            return $this->formatRate((float) $employee->hourly_rate * self::WORK_HOURS_PER_DAY * self::WORK_DAYS_PER_MONTH);
+        }
+
+        return '';
+    }
+
+    protected function calculateDailyRate(string $monthlyRate): string
+    {
+        if ($monthlyRate === '') {
+            return '';
+        }
+
+        return $this->formatRate((float) $monthlyRate / self::WORK_DAYS_PER_MONTH);
+    }
+
+    protected function calculateHourlyRate(string $dailyRate): string
+    {
+        if ($dailyRate === '') {
+            return '';
+        }
+
+        return $this->formatRate((float) $dailyRate / self::WORK_HOURS_PER_DAY);
+    }
+
+    protected function formatRate(float $value): string
+    {
+        return number_format(round($value, 2), 2, '.', '');
     }
 
     /**
