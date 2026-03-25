@@ -127,19 +127,14 @@ export default function DailyAttendanceRow({
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor={`rate-${day.key}`}>Rate</Label>
+                    <Label htmlFor={`rate-${day.key}`}>Computed rate</Label>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Input
                             id={`rate-${day.key}`}
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="0.01"
+                            type="text"
                             value={entry.isAbsent ? '0.00' : entry.rate}
-                            disabled={entry.isAbsent}
-                            onChange={(event) =>
-                                onUpdate('rate', event.target.value)
-                            }
+                            readOnly
+                            className="bg-muted/40 font-medium"
                         />
                         <Button
                             type="button"

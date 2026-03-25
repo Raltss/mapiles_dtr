@@ -77,10 +77,11 @@ export default function DailyAttendanceCard({
             <CardHeader>
                 <CardTitle>Daily attendance input</CardTitle>
                 <CardDescription>
-                    Times and rate are prefilled from the employee's schedule.
-                    Edit only the days with exceptions for {selectedMonthLabel}{' '}
-                    {selectedYear}, or mark a scheduled day as absent to force
-                    0 hours and PHP 0.00.
+                    Times are prefilled from the employee's schedule and the
+                    rate is computed automatically. Late minutes after the
+                    grace period deduct PHP 1.00 each, while arrivals that are
+                    3 hours or more after the scheduled start become half-day
+                    rates for {selectedMonthLabel} {selectedYear}.
                 </CardDescription>
                 <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
@@ -218,7 +219,7 @@ export default function DailyAttendanceCard({
                                                 Hours
                                             </th>
                                             <th className="px-3 py-3 font-medium">
-                                                Rate
+                                                Computed rate
                                             </th>
                                         </tr>
                                     </thead>

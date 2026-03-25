@@ -116,14 +116,10 @@ export default function DailyAttendanceTableRow({
                 <div className="flex min-w-[320px] items-center gap-2">
                     <Input
                         id={`desktop-rate-${day.key}`}
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
+                        type="text"
                         value={entry.isAbsent ? '0.00' : entry.rate}
-                        disabled={entry.isAbsent}
-                        onChange={(event) => onUpdate('rate', event.target.value)}
-                        className="min-w-[120px] text-right"
+                        readOnly
+                        className="min-w-[120px] bg-muted/40 text-right font-medium"
                     />
                     <Button
                         type="button"

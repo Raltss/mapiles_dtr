@@ -31,7 +31,7 @@ export default function CalculatePageContent({
             <div className="flex flex-1 flex-col gap-6 p-5 md:p-6">
                 <Heading
                     title="Calculate"
-                    description="Choose an employee, set the month and year, then encode daily time in, time out, rate, holiday entries, or mark a scheduled day as absent."
+                    description="Choose an employee, set the month and year, then encode daily time in, time out, holiday entries, or absences. The daily rate is computed automatically from the employee schedule, grace period, late minutes, and half-day rule."
                 />
 
                 {attendance.isEditingFromSummary ? (

@@ -18,6 +18,7 @@ class CalculateController extends Controller
 {
     private const WORK_DAYS_PER_MONTH = 26;
     private const BREAK_MINUTES_PER_SHIFT = 60;
+    private const HALF_DAY_THRESHOLD_MINUTES = 180;
 
     public function index(Request $request): Response
     {
@@ -78,14 +79,22 @@ class CalculateController extends Controller
         DB::transaction(function () use ($employee, $month, $request, $validated, $year): void {
             Employee::query()->whereKey($employee->id)->lockForUpdate()->firstOrFail();
 
+            $scheduleByDay = collect($this->storedSchedule($employee))->keyBy('day');
+
             $preparedEntries = collect($validated['entries'])
                 ->sortBy('date')
                 ->values()
-                ->map(function (array $entry): array {
+                ->map(function (array $entry) use ($employee, $scheduleByDay): array {
                     $isAbsent = filter_var(
                         $entry['is_absent'] ?? false,
                         FILTER_VALIDATE_BOOLEAN,
                     );
+                    $workDate = Carbon::parse($entry['date']);
+                    $scheduleDay = $scheduleByDay->get((int) $workDate->dayOfWeek);
+                    $baseRate = $isAbsent
+                        ? $this->formatRate(0)
+                        : $this->resolvedEntryBaseRate($employee, $entry['base_rate'] ?? null);
+                    $holidayType = $isAbsent ? 'none' : (string) $entry['holiday_type'];
 
                     return [
                         'work_date' => $entry['date'],
@@ -95,7 +104,7 @@ class CalculateController extends Controller
                         'time_out' => $isAbsent
                             ? null
                             : $this->normalizeEntryTime($entry['time_out'] ?? null),
-                        'holiday_type' => $isAbsent ? 'none' : (string) $entry['holiday_type'],
+                        'holiday_type' => $holidayType,
                         'worked_minutes' => $isAbsent
                             ? 0
                             : $this->resolveWorkedMinutes(
@@ -104,10 +113,16 @@ class CalculateController extends Controller
                             ),
                         'base_rate' => $isAbsent
                             ? $this->formatRate(0)
-                            : $this->nullableRate($entry['base_rate'] ?? null),
+                            : $baseRate,
                         'rate' => $isAbsent
                             ? $this->formatRate(0)
-                            : $this->nullableRate($entry['rate'] ?? null),
+                            : $this->computedEntryRate(
+                                $baseRate,
+                                $holidayType,
+                                $entry['time_in'] ?? null,
+                                $scheduleDay['startTime'] ?? null,
+                                (int) ($scheduleDay['graceMinutes'] ?? 0),
+                            ),
                     ];
                 });
 
@@ -204,11 +219,12 @@ class CalculateController extends Controller
     }
 
     /**
-     * @return array<int, array{day: int, startTime: string, endTime: string}>
+     * @return array<int, array{day: int, startTime: string, endTime: string, graceMinutes: int}>
      */
     protected function storedSchedule(Employee $employee): array
     {
         $storedSchedule = is_array($employee->weekly_schedule) ? $employee->weekly_schedule : [];
+        $defaultGraceMinutes = max(0, (int) ($employee->grace_period_minutes ?? 0));
 
         if ($storedSchedule !== []) {
             return collect($storedSchedule)
@@ -217,6 +233,7 @@ class CalculateController extends Controller
                     'day' => (int) $scheduleDay['day'],
                     'startTime' => $this->formatScheduleTime($scheduleDay['start_time'] ?? $employee->scheduled_start_time),
                     'endTime' => $this->formatScheduleTime($scheduleDay['end_time'] ?? $employee->scheduled_end_time),
+                    'graceMinutes' => max(0, (int) ($scheduleDay['grace_period_minutes'] ?? $defaultGraceMinutes)),
                 ])
                 ->sortBy('day')
                 ->values()
@@ -228,6 +245,7 @@ class CalculateController extends Controller
                 'day' => (int) $day,
                 'startTime' => $this->formatScheduleTime($employee->scheduled_start_time),
                 'endTime' => $this->formatScheduleTime($employee->scheduled_end_time),
+                'graceMinutes' => $defaultGraceMinutes,
             ])
             ->sortBy('day')
             ->values()
@@ -279,6 +297,68 @@ class CalculateController extends Controller
         [$hours, $minutes] = array_map('intval', explode(':', $time));
 
         return $hours * 60 + $minutes;
+    }
+
+    protected function resolvedEntryBaseRate(Employee $employee, mixed $value): ?string
+    {
+        if (is_numeric($value)) {
+            return $this->formatRate((float) $value);
+        }
+
+        $dailyRate = $this->resolvedDailyRate($employee);
+
+        if ($dailyRate === '') {
+            return null;
+        }
+
+        return $this->formatRate((float) $dailyRate);
+    }
+
+    protected function computedEntryRate(
+        ?string $baseRate,
+        string $holidayType,
+        mixed $timeIn,
+        mixed $scheduledTimeIn,
+        int $graceMinutes,
+    ): ?string {
+        $adjustedRate = $this->adjustedEntryRate($baseRate, $holidayType);
+
+        if ($adjustedRate === null) {
+            return null;
+        }
+
+        $actualTimeInMinutes = $this->minutesFromTime($timeIn);
+        $scheduledTimeInMinutes = $this->minutesFromTime($scheduledTimeIn);
+
+        if ($actualTimeInMinutes === null || $scheduledTimeInMinutes === null) {
+            return $this->formatRate($adjustedRate);
+        }
+
+        if ($actualTimeInMinutes >= $scheduledTimeInMinutes + self::HALF_DAY_THRESHOLD_MINUTES) {
+            return $this->formatRate($adjustedRate / 2);
+        }
+
+        $lateMinutes = max(0, $actualTimeInMinutes - $scheduledTimeInMinutes - max(0, $graceMinutes));
+
+        return $this->formatRate(max(0, $adjustedRate - $lateMinutes));
+    }
+
+    protected function adjustedEntryRate(?string $baseRate, string $holidayType): ?float
+    {
+        if ($baseRate === null || $baseRate === '') {
+            return null;
+        }
+
+        return (float) $baseRate * $this->holidayMultiplier($holidayType);
+    }
+
+    protected function holidayMultiplier(string $holidayType): float
+    {
+        return match ($holidayType) {
+            'regularHoliday' => 2.0,
+            'specialWorkingHoliday' => 1.3,
+            default => 1.0,
+        };
     }
 
     protected function nullableRate(mixed $value): ?string

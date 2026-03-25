@@ -5,6 +5,7 @@ export type EmployeeScheduleDay = {
     day: number;
     startTime: string;
     endTime: string;
+    graceMinutes: number;
 };
 
 export type EmployeeOption = {
@@ -48,12 +49,7 @@ export type CalculatePageProps = {
 
 export type HolidayType = 'none' | 'regularHoliday' | 'specialWorkingHoliday';
 
-export type AttendanceField =
-    | 'timeIn'
-    | 'timeOut'
-    | 'rate'
-    | 'holidayType'
-    | 'isAbsent';
+export type AttendanceField = 'timeIn' | 'timeOut' | 'holidayType' | 'isAbsent';
 
 export type AttendanceEntry = {
     timeIn: string;
@@ -76,6 +72,7 @@ export type MonthDay = {
     weekday: string;
     defaultTimeIn: string;
     defaultTimeOut: string;
+    graceMinutes: number;
 };
 
 export function createAttendanceEntry(
@@ -117,6 +114,7 @@ export const holidayOptions: Array<{ label: string; value: HolidayType }> = [
 
 export const daysPerPage = 7;
 export const breakMinutesPerShift = 60;
+export const halfDayThresholdMinutes = 180;
 
 function formatDatePart(value: number): string {
     return value.toString().padStart(2, '0');
@@ -128,10 +126,6 @@ function getDateKey(year: number, month: number, day: number): string {
 
 function normalizeTimeValue(value: string): string {
     return value.length >= 5 ? value.slice(0, 5) : value;
-}
-
-export function getAttendanceEntryKey(employeeId: string, dateKey: string) {
-    return `${employeeId || 'unassigned'}:${dateKey}`;
 }
 
 function getMinutesFromTime(value: string): number | null {
@@ -146,6 +140,10 @@ function getMinutesFromTime(value: string): number | null {
     }
 
     return hours * 60 + minutes;
+}
+
+export function getAttendanceEntryKey(employeeId: string, dateKey: string) {
+    return `${employeeId || 'unassigned'}:${dateKey}`;
 }
 
 export function getShiftDurationMinutes(
@@ -241,6 +239,72 @@ export function getAdjustedDailyRate(
     return (parsedDailyRate * getHolidayMultiplier(holidayType)).toFixed(2);
 }
 
+export function getLateMinutes(
+    timeIn: string,
+    scheduledTimeIn: string,
+    graceMinutes: number,
+): number | null {
+    const actualTimeInMinutes = getMinutesFromTime(timeIn);
+    const scheduledTimeInMinutes = getMinutesFromTime(scheduledTimeIn);
+
+    if (actualTimeInMinutes === null || scheduledTimeInMinutes === null) {
+        return null;
+    }
+
+    return Math.max(
+        0,
+        actualTimeInMinutes -
+            scheduledTimeInMinutes -
+            Math.max(0, graceMinutes),
+    );
+}
+
+export function isHalfDayTimeIn(
+    timeIn: string,
+    scheduledTimeIn: string,
+): boolean {
+    const actualTimeInMinutes = getMinutesFromTime(timeIn);
+    const scheduledTimeInMinutes = getMinutesFromTime(scheduledTimeIn);
+
+    if (actualTimeInMinutes === null || scheduledTimeInMinutes === null) {
+        return false;
+    }
+
+    return actualTimeInMinutes >= scheduledTimeInMinutes + halfDayThresholdMinutes;
+}
+
+export function getComputedDailyRate(
+    baseDailyRate: string,
+    holidayType: HolidayType,
+    timeIn: string,
+    scheduledTimeIn: string,
+    graceMinutes: number,
+): string {
+    const adjustedDailyRate = getAdjustedDailyRate(baseDailyRate, holidayType);
+
+    if (adjustedDailyRate === '') {
+        return '';
+    }
+
+    const parsedAdjustedDailyRate = Number(adjustedDailyRate);
+
+    if (!Number.isFinite(parsedAdjustedDailyRate)) {
+        return '';
+    }
+
+    if (isHalfDayTimeIn(timeIn, scheduledTimeIn)) {
+        return (parsedAdjustedDailyRate / 2).toFixed(2);
+    }
+
+    const lateMinutes = getLateMinutes(timeIn, scheduledTimeIn, graceMinutes);
+
+    if (lateMinutes === null) {
+        return adjustedDailyRate;
+    }
+
+    return Math.max(0, parsedAdjustedDailyRate - lateMinutes).toFixed(2);
+}
+
 export function getBaseDailyRate(
     rate: string,
     holidayType: HolidayType,
@@ -269,6 +333,9 @@ export function buildMonthDays(
             {
                 defaultTimeIn: normalizeTimeValue(scheduleDay.startTime),
                 defaultTimeOut: normalizeTimeValue(scheduleDay.endTime),
+                graceMinutes: Number.isFinite(scheduleDay.graceMinutes)
+                    ? Math.max(0, scheduleDay.graceMinutes)
+                    : 0,
             },
         ]),
     );
@@ -299,6 +366,7 @@ export function buildMonthDays(
             }),
             defaultTimeIn: daySchedule.defaultTimeIn,
             defaultTimeOut: daySchedule.defaultTimeOut,
+            graceMinutes: daySchedule.graceMinutes,
         };
     }).filter((day): day is MonthDay => day !== null);
 }
