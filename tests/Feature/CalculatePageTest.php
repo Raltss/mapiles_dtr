@@ -71,11 +71,12 @@ test('authenticated users can view employees, daily rates, and scheduled work da
             ->where('employees.1.schedule.5.endTime', '17:00')
             ->where('initialSelection.month', now()->month)
             ->where('initialSelection.year', now()->year)
+            ->where('isEditingFromSummary', false)
             ->where('activeDtr', null),
         );
 });
 
-test('calculate page can preload a confirmed dtr for reopening', function () {
+test('calculate page can preload a confirmed dtr for reopening from summary', function () {
     $user = User::factory()->create();
     $employee = Employee::factory()->create([
         'first_name' => 'Ben',
@@ -106,6 +107,7 @@ test('calculate page can preload a confirmed dtr for reopening', function () {
             'employee' => $employee->id,
             'month' => 3,
             'year' => 2026,
+            'source' => 'summary',
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
@@ -113,6 +115,7 @@ test('calculate page can preload a confirmed dtr for reopening', function () {
             ->where('initialSelection.employeeId', $employee->id)
             ->where('initialSelection.month', 3)
             ->where('initialSelection.year', 2026)
+            ->where('isEditingFromSummary', true)
             ->where('activeDtr.employeeId', $employee->id)
             ->where('activeDtr.month', 3)
             ->where('activeDtr.year', 2026)

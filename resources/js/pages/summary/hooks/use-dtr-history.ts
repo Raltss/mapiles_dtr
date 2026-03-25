@@ -64,6 +64,7 @@ export function useDtrHistory(dtrs: SummaryDtr[]) {
                     employee: dtr.employeeId,
                     month: dtr.month,
                     year: dtr.year,
+                    source: 'summary',
                 },
             }),
         );

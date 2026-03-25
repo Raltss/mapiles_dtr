@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -20,6 +21,7 @@ import {
 type DailyAttendanceRowProps = {
     day: MonthDay;
     entry: AttendanceEntry;
+    onCheckComputation: () => void;
     onUpdate: (
         field: AttendanceField,
         value: AttendanceEntry[AttendanceField],
@@ -29,6 +31,7 @@ type DailyAttendanceRowProps = {
 export default function DailyAttendanceRow({
     day,
     entry,
+    onCheckComputation,
     onUpdate,
 }: DailyAttendanceRowProps) {
     const workedDuration = formatWorkedDuration(
@@ -105,17 +108,27 @@ export default function DailyAttendanceRow({
 
                 <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor={`rate-${day.key}`}>Rate</Label>
-                    <Input
-                        id={`rate-${day.key}`}
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
-                        value={entry.rate}
-                        onChange={(event) =>
-                            onUpdate('rate', event.target.value)
-                        }
-                    />
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Input
+                            id={`rate-${day.key}`}
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={entry.rate}
+                            onChange={(event) =>
+                                onUpdate('rate', event.target.value)
+                            }
+                        />
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="sm:w-auto"
+                            onClick={onCheckComputation}
+                        >
+                            Check computation
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,22 +1,27 @@
 import { Head } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
 import Heading from '@/components/heading';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { breadcrumbs, type CalculatePageProps } from '../helpers/calculate-page';
 import { useCalculateAttendance } from '../hooks/use-calculate-attendance';
 import AttendanceSetupCard from './attendance-setup-card';
 import DailyAttendanceCard from './daily-attendance-card';
 import DtrSummaryDialog from './dtr-summary-dialog';
+import RateComputationDialog from './rate-computation-dialog';
 
 export default function CalculatePageContent({
     successMessage = null,
     employees,
     initialSelection = null,
+    isEditingFromSummary = false,
     activeDtr = null,
 }: CalculatePageProps) {
     const attendance = useCalculateAttendance(
         employees,
         initialSelection,
         activeDtr,
+        isEditingFromSummary,
     );
 
     return (
@@ -29,9 +34,22 @@ export default function CalculatePageContent({
                     description="Choose an employee, set the month and year, then encode daily time in, time out, rate, and holiday entries."
                 />
 
+                {attendance.isEditingFromSummary ? (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="w-fit gap-2"
+                        onClick={attendance.goBackToSummary}
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to Summary
+                    </Button>
+                ) : null}
+
                 <AttendanceSetupCard
                     employees={employees}
                     selectedEmployeeId={attendance.selectedEmployeeId}
+                    isEmployeeLocked={attendance.isEditingFromSummary}
                     onEmployeeChange={attendance.handleEmployeeChange}
                 />
 
@@ -61,8 +79,17 @@ export default function CalculatePageContent({
                             onPreviousPage={attendance.goToPreviousPage}
                             onNextPage={attendance.goToNextPage}
                             onSubmit={attendance.openSummaryDialog}
+                            onCheckComputation={attendance.openRateComputation}
                             getAttendanceEntry={attendance.getAttendanceEntry}
                             updateAttendanceEntry={attendance.updateAttendanceEntry}
+                        />
+
+                        <RateComputationDialog
+                            open={attendance.isRateComputationDialogOpen}
+                            computation={attendance.selectedRateComputation}
+                            onOpenChange={
+                                attendance.handleRateComputationDialogChange
+                            }
                         />
 
                         <DtrSummaryDialog

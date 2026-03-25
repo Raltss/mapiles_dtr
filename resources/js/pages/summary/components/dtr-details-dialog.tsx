@@ -12,10 +12,7 @@ import {
     formatWorkedDuration,
     getHolidayLabel,
 } from '../../calculate/helpers/calculate-page';
-import {
-    formatConfirmedAt,
-    type SummaryDtr,
-} from '../helpers/summary-page';
+import { formatConfirmedAt, type SummaryDtr } from '../helpers/summary-page';
 
 type DtrDetailsDialogProps = {
     dtr: SummaryDtr | null;
@@ -58,9 +55,7 @@ export default function DtrDetailsDialog({
                         </p>
                     </div>
                     <div className="rounded-lg border p-4">
-                        <p className="text-sm text-muted-foreground">
-                            Period
-                        </p>
+                        <p className="text-sm text-muted-foreground">Period</p>
                         <p className="mt-1 font-medium text-foreground">
                             {dtr.monthLabel} {dtr.year}
                         </p>
@@ -120,7 +115,7 @@ export default function DtrDetailsDialog({
                                 {dtr.entries.map((entry) => (
                                     <tr
                                         key={entry.date}
-                                        className="border-b align-top odd:bg-muted/10 last:border-b-0"
+                                        className="border-b align-top last:border-b-0 odd:bg-muted/10"
                                     >
                                         <td className="px-4 py-3">
                                             <div className="font-medium text-foreground">
@@ -210,33 +205,6 @@ export default function DtrDetailsDialog({
                         </div>
                     ))}
                 </div>
-
-                <DialogFooter className="gap-2 border-t pt-4">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => onOpenChange(false)}
-                    >
-                        Close
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => onExport(dtr)}
-                    >
-                        Export CSV
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => onPrint(dtr)}
-                    >
-                        Print
-                    </Button>
-                    <Button type="button" onClick={() => onReopen(dtr)}>
-                        Reopen in Calculate
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

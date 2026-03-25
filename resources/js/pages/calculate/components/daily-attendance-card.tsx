@@ -41,6 +41,7 @@ type DailyAttendanceCardProps = {
     onPreviousPage: () => void;
     onNextPage: () => void;
     onSubmit: () => void;
+    onCheckComputation: (dateKey: string) => void;
     getAttendanceEntry: (dateKey: string) => AttendanceEntry;
     updateAttendanceEntry: (
         dateKey: string,
@@ -67,6 +68,7 @@ export default function DailyAttendanceCard({
     onPreviousPage,
     onNextPage,
     onSubmit,
+    onCheckComputation,
     getAttendanceEntry,
     updateAttendanceEntry,
 }: DailyAttendanceCardProps) {
@@ -224,6 +226,9 @@ export default function DailyAttendanceCard({
                                                 entry={getAttendanceEntry(
                                                     day.key,
                                                 )}
+                                                onCheckComputation={() =>
+                                                    onCheckComputation(day.key)
+                                                }
                                                 onUpdate={(field, value) =>
                                                     updateAttendanceEntry(
                                                         day.key,
@@ -244,6 +249,9 @@ export default function DailyAttendanceCard({
                                     key={day.key}
                                     day={day}
                                     entry={getAttendanceEntry(day.key)}
+                                    onCheckComputation={() =>
+                                        onCheckComputation(day.key)
+                                    }
                                     onUpdate={(field, value) =>
                                         updateAttendanceEntry(
                                             day.key,

@@ -1,7 +1,9 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { store as calculateStore } from '@/routes/calculate';
+import { index as summaryIndex } from '@/routes/summary';
 import {
+    breakMinutesPerShift,
     buildMonthDays,
     createAttendanceEntry,
     daysPerPage,
@@ -11,6 +13,8 @@ import {
     getAttendanceEntryKey,
     getBaseDailyRate,
     getHolidayLabel,
+    getHolidayMultiplier,
+    getShiftDurationMinutes,
     getWorkedMinutes,
     monthOptions,
     type ActiveDtr,
@@ -19,6 +23,7 @@ import {
     type EmployeeOption,
     type HolidayType,
     type InitialSelection,
+    type MonthDay,
 } from '../helpers/calculate-page';
 
 export type DtrSummaryEntry = {
@@ -42,6 +47,24 @@ export type DtrSummary = {
     entries: DtrSummaryEntry[];
 };
 
+export type RateComputationDetails = {
+    key: string;
+    label: string;
+    weekday: string;
+    timeIn: string;
+    timeOut: string;
+    shiftDurationLabel: string;
+    breakDurationLabel: string;
+    workedDurationLabel: string;
+    timeFormulaLabel: string;
+    holidayLabel: string;
+    holidayAdjustmentLabel: string;
+    multiplierLabel: string;
+    baseRateLabel: string;
+    rateLabel: string;
+    rateFormulaLabel: string;
+};
+
 function buildInitialAttendanceEntries(activeDtr: ActiveDtr | null | undefined) {
     if (!activeDtr) {
         return {} as Record<string, AttendanceEntry>;
@@ -63,10 +86,23 @@ function buildInitialAttendanceEntries(activeDtr: ActiveDtr | null | undefined) 
     );
 }
 
+function getHolidayAdjustmentLabel(holidayType: HolidayType): string {
+    switch (holidayType) {
+        case 'regularHoliday':
+            return 'Adds 100% of the base rate.';
+        case 'specialWorkingHoliday':
+            return 'Adds 30% of the base rate.';
+        case 'none':
+        default:
+            return 'No holiday premium applied.';
+    }
+}
+
 export function useCalculateAttendance(
     employees: EmployeeOption[],
     initialSelection: InitialSelection | null | undefined,
     activeDtr: ActiveDtr | null | undefined,
+    isEditingFromSummary = false,
 ) {
     const today = new Date();
     const currentYear = initialSelection?.year ?? today.getFullYear();
@@ -89,6 +125,8 @@ export function useCalculateAttendance(
     >(() => buildInitialAttendanceEntries(activeDtr));
     const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false);
     const [isSubmittingDtr, setIsSubmittingDtr] = useState(false);
+    const [selectedComputationDayKey, setSelectedComputationDayKey] =
+        useState<string | null>(null);
 
     const selectedEmployee =
         employees.find(
@@ -182,6 +220,60 @@ export function useCalculateAttendance(
         ),
     };
 
+    const buildRateComputationDetails = (
+        day: MonthDay,
+    ): RateComputationDetails => {
+        const entry = getAttendanceEntry(day.key);
+        const shiftDuration = getShiftDurationMinutes(entry.timeIn, entry.timeOut);
+        const workedMinutes = getWorkedMinutes(entry.timeIn, entry.timeOut);
+        const multiplier = getHolidayMultiplier(entry.holidayType);
+        const hasBaseRate =
+            entry.baseRate.trim() !== '' && Number.isFinite(Number(entry.baseRate));
+        const hasRate =
+            entry.rate.trim() !== '' && Number.isFinite(Number(entry.rate));
+
+        return {
+            key: day.key,
+            label: day.label,
+            weekday: day.weekday,
+            timeIn: entry.timeIn || '--',
+            timeOut: entry.timeOut || '--',
+            shiftDurationLabel: formatWorkedDuration(shiftDuration),
+            breakDurationLabel:
+                shiftDuration === null
+                    ? '--'
+                    : formatWorkedDuration(breakMinutesPerShift),
+            workedDurationLabel: formatWorkedDuration(workedMinutes),
+            timeFormulaLabel:
+                shiftDuration === null || workedMinutes === null
+                    ? 'Enter both time in and time out to compute hours worked.'
+                    : `${entry.timeIn} to ${entry.timeOut} = ${formatWorkedDuration(shiftDuration)} minus ${formatWorkedDuration(breakMinutesPerShift)} break = ${formatWorkedDuration(workedMinutes)}`,
+            holidayLabel: getHolidayLabel(entry.holidayType),
+            holidayAdjustmentLabel: getHolidayAdjustmentLabel(
+                entry.holidayType,
+            ),
+            multiplierLabel: `${multiplier.toFixed(2)}x`,
+            baseRateLabel: hasBaseRate ? formatRateAmount(entry.baseRate) : '--',
+            rateLabel: hasRate ? formatRateAmount(entry.rate) : '--',
+            rateFormulaLabel:
+                hasBaseRate && hasRate
+                    ? `${formatRateAmount(entry.baseRate)} x ${multiplier.toFixed(2)} = ${formatRateAmount(entry.rate)}`
+                    : 'Enter a valid rate to see the day computation.',
+        };
+    };
+
+    const selectedRateComputation = selectedComputationDayKey
+        ? (() => {
+              const selectedDay = monthDays.find(
+                  (day) => day.key === selectedComputationDayKey,
+              );
+
+              return selectedDay
+                  ? buildRateComputationDetails(selectedDay)
+                  : null;
+          })()
+        : null;
+
     const updateAttendanceEntry = (
         dateKey: string,
         field: AttendanceField,
@@ -239,6 +331,10 @@ export function useCalculateAttendance(
     };
 
     const handleEmployeeChange = (value: string) => {
+        if (isEditingFromSummary) {
+            return;
+        }
+
         setSelectedEmployeeId(value);
         setCurrentPage(1);
         resetReviewState();
@@ -248,12 +344,14 @@ export function useCalculateAttendance(
         setSelectedMonth(value);
         setCurrentPage(1);
         resetReviewState();
+        setSelectedComputationDayKey(null);
     };
 
     const handleYearChange = (value: string) => {
         setSelectedYear(value);
         setCurrentPage(1);
         resetReviewState();
+        setSelectedComputationDayKey(null);
     };
 
     const goToPage = (pageNumber: number) => {
@@ -268,6 +366,10 @@ export function useCalculateAttendance(
         setCurrentPage((page) => Math.min(totalPages, page + 1));
     };
 
+    const goBackToSummary = () => {
+        router.visit(summaryIndex.url());
+    };
+
     const openSummaryDialog = () => {
         setIsSummaryDialogOpen(true);
     };
@@ -278,6 +380,16 @@ export function useCalculateAttendance(
         }
 
         setIsSummaryDialogOpen(open);
+    };
+
+    const openRateComputation = (dateKey: string) => {
+        setSelectedComputationDayKey(dateKey);
+    };
+
+    const handleRateComputationDialogChange = (open: boolean) => {
+        if (!open) {
+            setSelectedComputationDayKey(null);
+        }
     };
 
     const confirmDtr = () => {
@@ -291,6 +403,7 @@ export function useCalculateAttendance(
                 employee_id: selectedEmployee.id,
                 month: Number(selectedMonth),
                 year: Number(selectedYear),
+                ...(isEditingFromSummary ? { source: 'summary' } : {}),
                 entries: summaryEntryData.map((entry) => ({
                     date: entry.key,
                     time_in: entry.timeIn || null,
@@ -315,16 +428,21 @@ export function useCalculateAttendance(
         confirmDtr,
         dtrSummary,
         getAttendanceEntry,
+        goBackToSummary,
         goToNextPage,
         goToPage,
         goToPreviousPage,
         handleEmployeeChange,
         handleMonthChange,
+        handleRateComputationDialogChange,
         handleSummaryDialogChange,
         handleYearChange,
+        isEditingFromSummary,
+        isRateComputationDialogOpen: selectedRateComputation !== null,
         isSubmittingDtr,
         isSummaryDialogOpen,
         monthDays,
+        openRateComputation,
         openSummaryDialog,
         pageNumbers,
         paginatedDays,
@@ -332,6 +450,7 @@ export function useCalculateAttendance(
         selectedEmployeeId,
         selectedMonth,
         selectedMonthLabel,
+        selectedRateComputation,
         selectedYear,
         startIndex,
         totalPages,

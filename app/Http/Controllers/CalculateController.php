@@ -23,6 +23,7 @@ class CalculateController extends Controller
         $selectedEmployeeId = $request->integer('employee') ?: null;
         $selectedMonth = $request->integer('month') ?: (int) now()->month;
         $selectedYear = $request->integer('year') ?: (int) now()->year;
+        $isEditingFromSummary = $request->query('source') === 'summary';
 
         $employees = Employee::query()
             ->orderBy('last_name')
@@ -58,6 +59,7 @@ class CalculateController extends Controller
                 'month' => $selectedMonth,
                 'year' => $selectedYear,
             ],
+            'isEditingFromSummary' => $isEditingFromSummary,
             'activeDtr' => $selectedEmployeeId !== null
                 ? $this->activeDtr($selectedEmployeeId, $selectedMonth, $selectedYear)
                 : null,
@@ -120,11 +122,18 @@ class CalculateController extends Controller
             $dtr->entries()->createMany($preparedEntries->all());
         });
 
-        return to_route('calculate.index', [
+        $redirectQuery = [
             'employee' => $employee->id,
             'month' => $month,
             'year' => $year,
-        ])->with('success', 'DTR confirmed and saved successfully.');
+        ];
+
+        if ($request->input('source') === 'summary') {
+            $redirectQuery['source'] = 'summary';
+        }
+
+        return to_route('calculate.index', $redirectQuery)
+            ->with('success', 'DTR confirmed and saved successfully.');
     }
 
     protected function activeDtr(int $employeeId, int $month, int $year): ?array

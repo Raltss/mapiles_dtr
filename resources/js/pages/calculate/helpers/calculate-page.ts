@@ -41,6 +41,7 @@ export type CalculatePageProps = {
     successMessage?: string | null;
     employees: EmployeeOption[];
     initialSelection?: InitialSelection | null;
+    isEditingFromSummary?: boolean;
     activeDtr?: ActiveDtr | null;
 };
 
@@ -107,7 +108,7 @@ export const holidayOptions: Array<{ label: string; value: HolidayType }> = [
 ];
 
 export const daysPerPage = 7;
-const breakMinutesPerShift = 60;
+export const breakMinutesPerShift = 60;
 
 function formatDatePart(value: number): string {
     return value.toString().padStart(2, '0');
@@ -139,7 +140,7 @@ function getMinutesFromTime(value: string): number | null {
     return hours * 60 + minutes;
 }
 
-export function getWorkedMinutes(
+export function getShiftDurationMinutes(
     timeIn: string,
     timeOut: string,
 ): number | null {
@@ -150,10 +151,20 @@ export function getWorkedMinutes(
         return null;
     }
 
-    const totalWorkedMinutes =
-        timeOutMinutes >= timeInMinutes
-            ? timeOutMinutes - timeInMinutes
-            : 24 * 60 - timeInMinutes + timeOutMinutes;
+    return timeOutMinutes >= timeInMinutes
+        ? timeOutMinutes - timeInMinutes
+        : 24 * 60 - timeInMinutes + timeOutMinutes;
+}
+
+export function getWorkedMinutes(
+    timeIn: string,
+    timeOut: string,
+): number | null {
+    const totalWorkedMinutes = getShiftDurationMinutes(timeIn, timeOut);
+
+    if (totalWorkedMinutes === null) {
+        return null;
+    }
 
     return Math.max(0, totalWorkedMinutes - breakMinutesPerShift);
 }
@@ -173,7 +184,7 @@ export function formatWorkedDuration(totalMinutes: number | null): string {
     return `${hours}h ${minutes}m`;
 }
 
-function getHolidayMultiplier(holidayType: HolidayType): number {
+export function getHolidayMultiplier(holidayType: HolidayType): number {
     switch (holidayType) {
         case 'regularHoliday':
             return 2;
