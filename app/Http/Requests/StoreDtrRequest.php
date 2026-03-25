@@ -26,6 +26,7 @@ class StoreDtrRequest extends FormRequest
             'entries.*.holiday_type' => ['required', 'in:none,regularHoliday,specialWorkingHoliday'],
             'entries.*.base_rate' => ['nullable', 'numeric', 'min:0'],
             'entries.*.rate' => ['nullable', 'numeric', 'min:0'],
+            'entries.*.is_absent' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -46,8 +47,19 @@ class StoreDtrRequest extends FormRequest
                     $date = $entry['date'] ?? null;
                     $timeIn = $entry['time_in'] ?? null;
                     $timeOut = $entry['time_out'] ?? null;
+                    $isAbsent = filter_var(
+                        $entry['is_absent'] ?? false,
+                        FILTER_VALIDATE_BOOLEAN,
+                    );
 
-                    if (is_string($timeIn) xor is_string($timeOut)) {
+                    if ($isAbsent && (filled($timeIn) || filled($timeOut))) {
+                        $validator->errors()->add(
+                            "entries.{$index}.time_out",
+                            'Absent days must not include time in or time out.',
+                        );
+                    }
+
+                    if (! $isAbsent && (is_string($timeIn) xor is_string($timeOut))) {
                         $validator->errors()->add(
                             "entries.{$index}.time_out",
                             'Time in and time out must be filled together.',

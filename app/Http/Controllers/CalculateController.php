@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDtrRequest;
 use App\Models\Dtr;
+use App\Models\DtrEntry;
 use App\Models\Employee;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -80,18 +81,35 @@ class CalculateController extends Controller
             $preparedEntries = collect($validated['entries'])
                 ->sortBy('date')
                 ->values()
-                ->map(fn (array $entry): array => [
-                    'work_date' => $entry['date'],
-                    'time_in' => $this->normalizeEntryTime($entry['time_in'] ?? null),
-                    'time_out' => $this->normalizeEntryTime($entry['time_out'] ?? null),
-                    'holiday_type' => (string) $entry['holiday_type'],
-                    'worked_minutes' => $this->resolveWorkedMinutes(
-                        $entry['time_in'] ?? null,
-                        $entry['time_out'] ?? null,
-                    ),
-                    'base_rate' => $this->nullableRate($entry['base_rate'] ?? null),
-                    'rate' => $this->nullableRate($entry['rate'] ?? null),
-                ]);
+                ->map(function (array $entry): array {
+                    $isAbsent = filter_var(
+                        $entry['is_absent'] ?? false,
+                        FILTER_VALIDATE_BOOLEAN,
+                    );
+
+                    return [
+                        'work_date' => $entry['date'],
+                        'time_in' => $isAbsent
+                            ? null
+                            : $this->normalizeEntryTime($entry['time_in'] ?? null),
+                        'time_out' => $isAbsent
+                            ? null
+                            : $this->normalizeEntryTime($entry['time_out'] ?? null),
+                        'holiday_type' => $isAbsent ? 'none' : (string) $entry['holiday_type'],
+                        'worked_minutes' => $isAbsent
+                            ? 0
+                            : $this->resolveWorkedMinutes(
+                                $entry['time_in'] ?? null,
+                                $entry['time_out'] ?? null,
+                            ),
+                        'base_rate' => $isAbsent
+                            ? $this->formatRate(0)
+                            : $this->nullableRate($entry['base_rate'] ?? null),
+                        'rate' => $isAbsent
+                            ? $this->formatRate(0)
+                            : $this->nullableRate($entry['rate'] ?? null),
+                    ];
+                });
 
             $attributes = [
                 'confirmed_by' => $request->user()?->id,
@@ -160,6 +178,7 @@ class CalculateController extends Controller
                     'holidayType' => (string) $entry->holiday_type,
                     'baseRate' => $entry->base_rate !== null ? (string) $entry->base_rate : '',
                     'rate' => $entry->rate !== null ? (string) $entry->rate : '',
+                    'isAbsent' => $this->isAbsentEntry($entry),
                 ])
                 ->values()
                 ->all(),
@@ -314,5 +333,13 @@ class CalculateController extends Controller
             'month' => (int) $periodDate->month,
             'year' => (int) $periodDate->year,
         ];
+    }
+
+    protected function isAbsentEntry(DtrEntry $entry): bool
+    {
+        return $entry->time_in === null
+            && $entry->time_out === null
+            && (int) $entry->worked_minutes === 0
+            && (float) ($entry->rate ?? 0) === 0.0;
     }
 }

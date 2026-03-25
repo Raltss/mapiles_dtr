@@ -28,6 +28,7 @@ export type ActiveDtrEntry = {
     holidayType: HolidayType;
     baseRate: string;
     rate: string;
+    isAbsent: boolean;
 };
 
 export type ActiveDtr = {
@@ -47,7 +48,12 @@ export type CalculatePageProps = {
 
 export type HolidayType = 'none' | 'regularHoliday' | 'specialWorkingHoliday';
 
-export type AttendanceField = 'timeIn' | 'timeOut' | 'rate' | 'holidayType';
+export type AttendanceField =
+    | 'timeIn'
+    | 'timeOut'
+    | 'rate'
+    | 'holidayType'
+    | 'isAbsent';
 
 export type AttendanceEntry = {
     timeIn: string;
@@ -55,6 +61,7 @@ export type AttendanceEntry = {
     baseRate: string;
     rate: string;
     holidayType: HolidayType;
+    isAbsent: boolean;
 };
 
 export type AttendanceDefaults = {
@@ -80,6 +87,7 @@ export function createAttendanceEntry(
         baseRate: defaults.dailyRate ?? '',
         rate: defaults.dailyRate ?? '',
         holidayType: 'none',
+        isAbsent: false,
     };
 }
 

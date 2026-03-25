@@ -125,7 +125,51 @@ test('calculate page can preload a confirmed dtr for reopening from summary', fu
             ->where('activeDtr.entries.0.timeOut', '17:00')
             ->where('activeDtr.entries.0.holidayType', 'specialWorkingHoliday')
             ->where('activeDtr.entries.0.baseRate', '800.00')
-            ->where('activeDtr.entries.0.rate', '1040.00'),
+            ->where('activeDtr.entries.0.rate', '1040.00')
+            ->where('activeDtr.entries.0.isAbsent', false),
+        );
+});
+
+test('calculate page can preload an absent day for reopening from summary', function () {
+    $user = User::factory()->create();
+    $employee = Employee::factory()->create([
+        'daily_rate' => '800.00',
+    ]);
+
+    $dtr = Dtr::query()->create([
+        'employee_id' => $employee->id,
+        'confirmed_by' => $user->id,
+        'total_days' => 1,
+        'total_worked_minutes' => 0,
+        'total_amount' => '0.00',
+    ]);
+
+    $dtr->entries()->create([
+        'work_date' => '2026-03-03',
+        'time_in' => null,
+        'time_out' => null,
+        'holiday_type' => 'none',
+        'worked_minutes' => 0,
+        'base_rate' => '0.00',
+        'rate' => '0.00',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('calculate.index', [
+            'employee' => $employee->id,
+            'month' => 3,
+            'year' => 2026,
+            'source' => 'summary',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('calculate/index')
+            ->where('activeDtr.entries.0.date', '2026-03-03')
+            ->where('activeDtr.entries.0.timeIn', '')
+            ->where('activeDtr.entries.0.timeOut', '')
+            ->where('activeDtr.entries.0.baseRate', '0.00')
+            ->where('activeDtr.entries.0.rate', '0.00')
+            ->where('activeDtr.entries.0.isAbsent', true),
         );
 });
 
@@ -154,6 +198,7 @@ test('authenticated users can confirm and store dtrs', function () {
                 'holiday_type' => 'none',
                 'base_rate' => '800.00',
                 'rate' => '800.00',
+                'is_absent' => false,
             ],
             [
                 'date' => '2026-03-07',
@@ -162,6 +207,7 @@ test('authenticated users can confirm and store dtrs', function () {
                 'holiday_type' => 'regularHoliday',
                 'base_rate' => '800.00',
                 'rate' => '1600.00',
+                'is_absent' => false,
             ],
         ],
     ];
@@ -197,6 +243,52 @@ test('authenticated users can confirm and store dtrs', function () {
         ->and((string) $entries[1]->rate)->toBe('1600.00');
 });
 
+test('authenticated users can confirm and store absent days', function () {
+    $user = User::factory()->create();
+    $employee = Employee::factory()->create([
+        'daily_rate' => '800.00',
+    ]);
+
+    $payload = [
+        'employee_id' => $employee->id,
+        'month' => 3,
+        'year' => 2026,
+        'entries' => [
+            [
+                'date' => '2026-03-03',
+                'time_in' => null,
+                'time_out' => null,
+                'holiday_type' => 'none',
+                'base_rate' => '0.00',
+                'rate' => '0.00',
+                'is_absent' => true,
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->post(route('calculate.store'), $payload)
+        ->assertRedirect(route('calculate.index', [
+            'employee' => $employee->id,
+            'month' => 3,
+            'year' => 2026,
+        ]));
+
+    $dtr = Dtr::query()->with('entries')->sole();
+    $entry = DtrEntry::query()->sole();
+
+    expect($dtr->total_days)->toBe(1)
+        ->and($dtr->total_worked_minutes)->toBe(0)
+        ->and((string) $dtr->total_amount)->toBe('0.00')
+        ->and($entry->work_date->toDateString())->toBe('2026-03-03')
+        ->and($entry->time_in)->toBeNull()
+        ->and($entry->time_out)->toBeNull()
+        ->and($entry->holiday_type)->toBe('none')
+        ->and($entry->worked_minutes)->toBe(0)
+        ->and((string) $entry->base_rate)->toBe('0.00')
+        ->and((string) $entry->rate)->toBe('0.00');
+});
+
 test('confirming the same employee and period updates the stored dtr', function () {
     $user = User::factory()->create();
     $employee = Employee::factory()->create();
@@ -213,6 +305,7 @@ test('confirming the same employee and period updates the stored dtr', function 
                 'holiday_type' => 'none',
                 'base_rate' => '800.00',
                 'rate' => '800.00',
+                'is_absent' => false,
             ],
             [
                 'date' => '2026-03-03',
@@ -221,6 +314,7 @@ test('confirming the same employee and period updates the stored dtr', function 
                 'holiday_type' => 'none',
                 'base_rate' => '800.00',
                 'rate' => '800.00',
+                'is_absent' => false,
             ],
         ],
     ];
@@ -237,6 +331,7 @@ test('confirming the same employee and period updates the stored dtr', function 
                 'holiday_type' => 'specialWorkingHoliday',
                 'base_rate' => '800.00',
                 'rate' => '1040.00',
+                'is_absent' => false,
             ],
         ],
     ];

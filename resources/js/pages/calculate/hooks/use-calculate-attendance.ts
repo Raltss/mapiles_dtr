@@ -26,6 +26,8 @@ import {
     type MonthDay,
 } from '../helpers/calculate-page';
 
+const absentRate = '0.00';
+
 export type DtrSummaryEntry = {
     key: string;
     label: string;
@@ -35,6 +37,7 @@ export type DtrSummaryEntry = {
     holidayLabel: string;
     workedDuration: string;
     rateLabel: string;
+    isAbsent: boolean;
 };
 
 export type DtrSummary = {
@@ -63,6 +66,7 @@ export type RateComputationDetails = {
     baseRateLabel: string;
     rateLabel: string;
     rateFormulaLabel: string;
+    isAbsent: boolean;
 };
 
 function buildInitialAttendanceEntries(activeDtr: ActiveDtr | null | undefined) {
@@ -81,6 +85,7 @@ function buildInitialAttendanceEntries(activeDtr: ActiveDtr | null | undefined) 
                     getBaseDailyRate(entry.rate, entry.holidayType),
                 rate: entry.rate,
                 holidayType: entry.holidayType,
+                isAbsent: entry.isAbsent,
             },
         ]),
     );
@@ -96,6 +101,16 @@ function getHolidayAdjustmentLabel(holidayType: HolidayType): string {
         default:
             return 'No holiday premium applied.';
     }
+}
+
+function hasMeaningfulAttendanceValues(entry: AttendanceEntry): boolean {
+    return (
+        entry.timeIn.trim() !== '' ||
+        entry.timeOut.trim() !== '' ||
+        entry.holidayType !== 'none' ||
+        (entry.baseRate.trim() !== '' && entry.baseRate !== absentRate) ||
+        (entry.rate.trim() !== '' && entry.rate !== absentRate)
+    );
 }
 
 export function useCalculateAttendance(
@@ -170,24 +185,36 @@ export function useCalculateAttendance(
 
     const summaryEntryData = monthDays.map((day) => {
         const entry = getAttendanceEntry(day.key);
-        const workedMinutes = getWorkedMinutes(entry.timeIn, entry.timeOut);
-        const parsedRate = Number(entry.rate);
+        const effectiveTimeIn = entry.isAbsent ? '' : entry.timeIn;
+        const effectiveTimeOut = entry.isAbsent ? '' : entry.timeOut;
+        const effectiveHolidayType = entry.isAbsent ? 'none' : entry.holidayType;
+        const effectiveBaseRate = entry.isAbsent ? absentRate : entry.baseRate;
+        const effectiveRate = entry.isAbsent ? absentRate : entry.rate;
+        const workedMinutes = entry.isAbsent
+            ? 0
+            : (getWorkedMinutes(effectiveTimeIn, effectiveTimeOut) ?? 0);
+        const parsedRate = Number(effectiveRate);
 
         return {
             key: day.key,
             label: day.label,
             weekday: day.weekday,
-            timeIn: entry.timeIn,
-            timeOut: entry.timeOut,
-            holidayLabel: getHolidayLabel(entry.holidayType),
-            holidayType: entry.holidayType,
+            timeIn: effectiveTimeIn,
+            timeOut: effectiveTimeOut,
+            holidayLabel: entry.isAbsent
+                ? 'Absent'
+                : getHolidayLabel(effectiveHolidayType),
+            holidayType: effectiveHolidayType,
             workedDuration: formatWorkedDuration(workedMinutes),
-            workedMinutes: workedMinutes ?? 0,
+            workedMinutes,
             rateAmount: Number.isFinite(parsedRate) ? parsedRate : 0,
-            rate: entry.rate,
-            baseRate: entry.baseRate,
+            rate: effectiveRate,
+            baseRate: effectiveBaseRate,
+            isAbsent: entry.isAbsent,
             rateLabel:
-                entry.rate.trim() === '' ? '--' : formatRateAmount(entry.rate),
+                entry.isAbsent || effectiveRate.trim() !== ''
+                    ? formatRateAmount(effectiveRate)
+                    : '--',
         };
     });
 
@@ -224,6 +251,30 @@ export function useCalculateAttendance(
         day: MonthDay,
     ): RateComputationDetails => {
         const entry = getAttendanceEntry(day.key);
+
+        if (entry.isAbsent) {
+            return {
+                key: day.key,
+                label: day.label,
+                weekday: day.weekday,
+                timeIn: '--',
+                timeOut: '--',
+                shiftDurationLabel: '--',
+                breakDurationLabel: '--',
+                workedDurationLabel: formatWorkedDuration(0),
+                timeFormulaLabel:
+                    'Marked as absent. Hours worked are automatically set to 0h.',
+                holidayLabel: 'Absent',
+                holidayAdjustmentLabel:
+                    'Absent days do not receive any holiday adjustment.',
+                multiplierLabel: 'N/A',
+                baseRateLabel: formatRateAmount(absentRate),
+                rateLabel: formatRateAmount(absentRate),
+                rateFormulaLabel: 'Absent day rate is fixed at PHP 0.00.',
+                isAbsent: true,
+            };
+        }
+
         const shiftDuration = getShiftDurationMinutes(entry.timeIn, entry.timeOut);
         const workedMinutes = getWorkedMinutes(entry.timeIn, entry.timeOut);
         const multiplier = getHolidayMultiplier(entry.holidayType);
@@ -259,6 +310,7 @@ export function useCalculateAttendance(
                 hasBaseRate && hasRate
                     ? `${formatRateAmount(entry.baseRate)} x ${multiplier.toFixed(2)} = ${formatRateAmount(entry.rate)}`
                     : 'Enter a valid rate to see the day computation.',
+            isAbsent: false,
         };
     };
 
@@ -284,6 +336,34 @@ export function useCalculateAttendance(
             const currentEntry =
                 currentEntries[entryKey] ?? getDefaultAttendanceEntry(dateKey);
 
+            if (field === 'isAbsent') {
+                const isAbsent = value === true;
+
+                if (!isAbsent) {
+                    const restoredEntry = hasMeaningfulAttendanceValues(
+                        currentEntry,
+                    )
+                        ? {
+                              ...currentEntry,
+                              isAbsent: false,
+                          }
+                        : getDefaultAttendanceEntry(dateKey);
+
+                    return {
+                        ...currentEntries,
+                        [entryKey]: restoredEntry,
+                    };
+                }
+
+                return {
+                    ...currentEntries,
+                    [entryKey]: {
+                        ...currentEntry,
+                        isAbsent: true,
+                    },
+                };
+            }
+
             if (field === 'holidayType') {
                 const holidayType = value as HolidayType;
 
@@ -292,6 +372,7 @@ export function useCalculateAttendance(
                     [entryKey]: {
                         ...currentEntry,
                         holidayType,
+                        isAbsent: false,
                         rate: getAdjustedDailyRate(
                             currentEntry.baseRate,
                             holidayType,
@@ -307,6 +388,7 @@ export function useCalculateAttendance(
                     ...currentEntries,
                     [entryKey]: {
                         ...currentEntry,
+                        isAbsent: false,
                         rate,
                         baseRate: getBaseDailyRate(
                             rate,
@@ -320,6 +402,7 @@ export function useCalculateAttendance(
                 ...currentEntries,
                 [entryKey]: {
                     ...currentEntry,
+                    isAbsent: false,
                     [field]: value as string,
                 },
             };
@@ -409,8 +492,9 @@ export function useCalculateAttendance(
                     time_in: entry.timeIn || null,
                     time_out: entry.timeOut || null,
                     holiday_type: entry.holidayType,
-                    base_rate: entry.baseRate || null,
-                    rate: entry.rate || null,
+                    base_rate: entry.baseRate,
+                    rate: entry.rate,
+                    is_absent: entry.isAbsent,
                 })),
             },
             {

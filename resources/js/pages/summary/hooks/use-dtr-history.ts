@@ -7,7 +7,11 @@ import {
     formatWorkedDuration,
     getHolidayLabel,
 } from '../../calculate/helpers/calculate-page';
-import { formatConfirmedAt, type SummaryDtr } from '../helpers/summary-page';
+import {
+    dtrPath,
+    formatConfirmedAt,
+    type SummaryDtr,
+} from '../helpers/summary-page';
 
 function escapeHtml(value: string): string {
     return value
@@ -33,6 +37,7 @@ function downloadCsv(filename: string, csv: string) {
 export function useDtrHistory(dtrs: SummaryDtr[]) {
     const [selectedDtr, setSelectedDtr] = useState<SummaryDtr | null>(null);
     const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+    const [deletingDtrId, setDeletingDtrId] = useState<number | null>(null);
 
     const overview = {
         totalDtrs: dtrs.length,
@@ -68,6 +73,36 @@ export function useDtrHistory(dtrs: SummaryDtr[]) {
                 },
             }),
         );
+    };
+
+    const deleteDtr = (dtr: SummaryDtr) => {
+        if (deletingDtrId === dtr.id) {
+            return;
+        }
+
+        if (
+            !window.confirm(
+                `Delete the saved DTR for ${dtr.employeeName} (${dtr.monthLabel} ${dtr.year})?`,
+            )
+        ) {
+            return;
+        }
+
+        setDeletingDtrId(dtr.id);
+
+        router.delete(dtrPath(dtr.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                if (selectedDtr?.id === dtr.id) {
+                    handleDetailsDialogChange(false);
+                }
+            },
+            onFinish: () => {
+                setDeletingDtrId((current) =>
+                    current === dtr.id ? null : current,
+                );
+            },
+        });
     };
 
     const exportDtrAsCsv = (dtr: SummaryDtr) => {
@@ -180,6 +215,8 @@ export function useDtrHistory(dtrs: SummaryDtr[]) {
     };
 
     return {
+        deleteDtr,
+        deletingDtrId,
         exportDtrAsCsv,
         handleDetailsDialogChange,
         isDetailsDialogOpen,
