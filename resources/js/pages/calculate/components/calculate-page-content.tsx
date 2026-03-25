@@ -1,0 +1,80 @@
+import { Head } from '@inertiajs/react';
+import Heading from '@/components/heading';
+import AppLayout from '@/layouts/app-layout';
+import { breadcrumbs, type CalculatePageProps } from '../helpers/calculate-page';
+import { useCalculateAttendance } from '../hooks/use-calculate-attendance';
+import AttendanceSetupCard from './attendance-setup-card';
+import DailyAttendanceCard from './daily-attendance-card';
+import DtrSummaryDialog from './dtr-summary-dialog';
+
+export default function CalculatePageContent({
+    successMessage = null,
+    employees,
+    initialSelection = null,
+    activeDtr = null,
+}: CalculatePageProps) {
+    const attendance = useCalculateAttendance(
+        employees,
+        initialSelection,
+        activeDtr,
+    );
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Calculate" />
+
+            <div className="flex flex-1 flex-col gap-6 p-5 md:p-6">
+                <Heading
+                    title="Calculate"
+                    description="Choose an employee, set the month and year, then encode daily time in, time out, rate, and holiday entries."
+                />
+
+                <AttendanceSetupCard
+                    employees={employees}
+                    selectedEmployeeId={attendance.selectedEmployeeId}
+                    onEmployeeChange={attendance.handleEmployeeChange}
+                />
+
+                {successMessage && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">
+                        {successMessage}
+                    </div>
+                )}
+
+                {employees.length > 0 && attendance.selectedEmployee ? (
+                    <>
+                        <DailyAttendanceCard
+                            selectedMonth={attendance.selectedMonth}
+                            selectedYear={attendance.selectedYear}
+                            selectedMonthLabel={attendance.selectedMonthLabel}
+                            yearOptions={attendance.yearOptions}
+                            monthDays={attendance.monthDays}
+                            paginatedDays={attendance.paginatedDays}
+                            startIndex={attendance.startIndex}
+                            visiblePage={attendance.visiblePage}
+                            totalPages={attendance.totalPages}
+                            pageNumbers={attendance.pageNumbers}
+                            canSubmitDtr={attendance.canSubmitDtr}
+                            onMonthChange={attendance.handleMonthChange}
+                            onYearChange={attendance.handleYearChange}
+                            onPageChange={attendance.goToPage}
+                            onPreviousPage={attendance.goToPreviousPage}
+                            onNextPage={attendance.goToNextPage}
+                            onSubmit={attendance.openSummaryDialog}
+                            getAttendanceEntry={attendance.getAttendanceEntry}
+                            updateAttendanceEntry={attendance.updateAttendanceEntry}
+                        />
+
+                        <DtrSummaryDialog
+                            open={attendance.isSummaryDialogOpen}
+                            isSubmitting={attendance.isSubmittingDtr}
+                            onOpenChange={attendance.handleSummaryDialogChange}
+                            onConfirm={attendance.confirmDtr}
+                            summary={attendance.dtrSummary}
+                        />
+                    </>
+                ) : null}
+            </div>
+        </AppLayout>
+    );
+}

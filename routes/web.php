@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CalculateController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\SummaryController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -16,6 +17,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
     Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
     Route::get('calculate', [CalculateController::class, 'index'])->name('calculate.index');
+    Route::post('calculate', [CalculateController::class, 'store'])->name('calculate.store');
+    Route::get('summary', [SummaryController::class, 'index'])->name('summary.index');
 });
 
 require __DIR__.'/settings.php';
