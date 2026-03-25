@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Calculator, LayoutGrid, Users } from 'lucide-react';
+import { Calculator, FileText, LayoutGrid, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -15,6 +15,7 @@ import {
 import { dashboard } from '@/routes';
 import { index as calculateIndex } from '@/routes/calculate';
 import { index as employeesIndex } from '@/routes/employees';
+import { index as summaryIndex } from '@/routes/summary';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -35,8 +36,8 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Summary',
-        href: calculateIndex(),
-        icon: Calculator,
+        href: summaryIndex(),
+        icon: FileText,
     },
 ];
 
