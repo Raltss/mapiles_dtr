@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,9 +35,9 @@ export default function DailyAttendanceRow({
     onCheckComputation,
     onUpdate,
 }: DailyAttendanceRowProps) {
-    const workedDuration = formatWorkedDuration(
-        getWorkedMinutes(entry.timeIn, entry.timeOut),
-    );
+    const workedDuration = entry.isAbsent
+        ? formatWorkedDuration(0)
+        : formatWorkedDuration(getWorkedMinutes(entry.timeIn, entry.timeOut));
 
     return (
         <div className="space-y-4 rounded-lg border p-4 md:hidden">
@@ -52,13 +53,30 @@ export default function DailyAttendanceRow({
                 </div>
             </div>
 
+            <div className="flex items-center space-x-3 rounded-lg border bg-muted/20 px-3 py-3">
+                <Checkbox
+                    id={`absent-${day.key}`}
+                    checked={entry.isAbsent}
+                    onCheckedChange={(checked) =>
+                        onUpdate('isAbsent', checked === true)
+                    }
+                />
+                <div className="space-y-1">
+                    <Label htmlFor={`absent-${day.key}`}>Mark as absent</Label>
+                    <p className="text-sm text-muted-foreground">
+                        Absent days automatically use 0 hours and PHP 0.00.
+                    </p>
+                </div>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                     <Label htmlFor={`time-in-${day.key}`}>Time in</Label>
                     <Input
                         id={`time-in-${day.key}`}
                         type="time"
-                        value={entry.timeIn}
+                        value={entry.isAbsent ? '' : entry.timeIn}
+                        disabled={entry.isAbsent}
                         onChange={(event) =>
                             onUpdate('timeIn', event.target.value)
                         }
@@ -70,7 +88,8 @@ export default function DailyAttendanceRow({
                     <Input
                         id={`time-out-${day.key}`}
                         type="time"
-                        value={entry.timeOut}
+                        value={entry.isAbsent ? '' : entry.timeOut}
+                        disabled={entry.isAbsent}
                         onChange={(event) =>
                             onUpdate('timeOut', event.target.value)
                         }
@@ -82,7 +101,8 @@ export default function DailyAttendanceRow({
                         Holiday type
                     </Label>
                     <Select
-                        value={entry.holidayType}
+                        value={entry.isAbsent ? 'none' : entry.holidayType}
+                        disabled={entry.isAbsent}
                         onValueChange={(value) =>
                             onUpdate('holidayType', value as HolidayType)
                         }
@@ -115,7 +135,8 @@ export default function DailyAttendanceRow({
                             inputMode="decimal"
                             min="0"
                             step="0.01"
-                            value={entry.rate}
+                            value={entry.isAbsent ? '0.00' : entry.rate}
+                            disabled={entry.isAbsent}
                             onChange={(event) =>
                                 onUpdate('rate', event.target.value)
                             }

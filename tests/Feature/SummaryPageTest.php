@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Dtr;
+use App\Models\DtrEntry;
 use App\Models\Employee;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -68,4 +69,35 @@ test('authenticated users can view confirmed dtrs in summary', function () {
             ->where('dtrs.0.entries.1.holidayType', 'regularHoliday')
             ->where('dtrs.0.entries.1.workedMinutes', 420),
         );
+});
+
+test('authenticated users can delete confirmed dtrs from summary', function () {
+    $user = User::factory()->create();
+    $employee = Employee::factory()->create();
+
+    $dtr = Dtr::query()->create([
+        'employee_id' => $employee->id,
+        'confirmed_by' => $user->id,
+        'total_days' => 1,
+        'total_worked_minutes' => 480,
+        'total_amount' => '800.00',
+    ]);
+
+    $dtr->entries()->create([
+        'work_date' => '2026-03-03',
+        'time_in' => '09:00:00',
+        'time_out' => '18:00:00',
+        'holiday_type' => 'none',
+        'worked_minutes' => 480,
+        'base_rate' => '800.00',
+        'rate' => '800.00',
+    ]);
+
+    $this->actingAs($user)
+        ->delete(route('summary.destroy', $dtr))
+        ->assertRedirect(route('summary.index'))
+        ->assertSessionHas('success', 'DTR deleted successfully.');
+
+    expect(Dtr::query()->count())->toBe(0)
+        ->and(DtrEntry::query()->count())->toBe(0);
 });

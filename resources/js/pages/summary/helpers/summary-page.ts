@@ -29,6 +29,7 @@ export type SummaryDtr = {
 };
 
 export type SummaryPageProps = {
+    successMessage?: string | null;
     dtrs: SummaryDtr[];
 };
 
@@ -38,6 +39,8 @@ export const breadcrumbs: BreadcrumbItem[] = [
         href: summaryIndex(),
     },
 ];
+
+export const dtrPath = (dtrId: number) => `/summary/${dtrId}`;
 
 export function formatConfirmedAt(value: string | null): string {
     if (!value) {

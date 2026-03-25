@@ -16,7 +16,9 @@ import { formatConfirmedAt, type SummaryDtr } from '../helpers/summary-page';
 
 type DtrDetailsDialogProps = {
     dtr: SummaryDtr | null;
+    deletingId: number | null;
     open: boolean;
+    onDelete: (dtr: SummaryDtr) => void;
     onOpenChange: (open: boolean) => void;
     onExport: (dtr: SummaryDtr) => void;
     onPrint: (dtr: SummaryDtr) => void;
@@ -25,7 +27,9 @@ type DtrDetailsDialogProps = {
 
 export default function DtrDetailsDialog({
     dtr,
+    deletingId,
     open,
+    onDelete,
     onOpenChange,
     onExport,
     onPrint,
@@ -35,13 +39,16 @@ export default function DtrDetailsDialog({
         return null;
     }
 
+    const isDeleting = deletingId === dtr.id;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>DTR Details</DialogTitle>
                     <DialogDescription>
-                        Review, print, export, or reopen this confirmed DTR.
+                        Review, print, export, reopen, or delete this
+                        confirmed DTR.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -205,6 +212,42 @@ export default function DtrDetailsDialog({
                         </div>
                     ))}
                 </div>
+
+                <DialogFooter className="gap-2 sm:justify-between">
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={isDeleting}
+                        onClick={() => onDelete(dtr)}
+                    >
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                    </Button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isDeleting}
+                            onClick={() => onExport(dtr)}
+                        >
+                            Export CSV
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isDeleting}
+                            onClick={() => onPrint(dtr)}
+                        >
+                            Print
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={isDeleting}
+                            onClick={() => onReopen(dtr)}
+                        >
+                            Edit
+                        </Button>
+                    </div>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

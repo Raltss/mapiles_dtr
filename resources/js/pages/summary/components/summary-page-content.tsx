@@ -21,7 +21,10 @@ import {
 import { useDtrHistory } from '../hooks/use-dtr-history';
 import DtrDetailsDialog from './dtr-details-dialog';
 
-export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
+export default function SummaryPageContent({
+    successMessage = null,
+    dtrs,
+}: SummaryPageProps) {
     const history = useDtrHistory(dtrs);
 
     return (
@@ -31,14 +34,22 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
             <div className="flex flex-1 flex-col gap-6 p-5 md:p-6">
                 <Heading
                     title="Summary"
-                    description="Review previously confirmed DTRs, reopen them for editing, print them, or export them as CSV."
+                    description="Review previously confirmed DTRs, reopen them for editing, print them, export them as CSV, or remove them."
                 />
+
+                {successMessage && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">
+                        {successMessage}
+                    </div>
+                )}
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Confirmed DTR History</CardTitle>
                         <CardDescription>
-                            Open any saved DTR to review the full details and
-                            export or print it.
+                            Open any saved DTR to review the full details,
+                            export or print it, or delete it when no longer
+                            needed.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -83,169 +94,225 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {dtrs.map((dtr) => (
-                                                    <tr
-                                                        key={dtr.id}
-                                                        className="border-b align-top last:border-b-0 odd:bg-muted/10"
-                                                    >
-                                                        <td className="px-4 py-3 font-medium text-foreground">
-                                                            {dtr.employeeName}
-                                                        </td>
-                                                        <td className="px-3 py-3">
-                                                            {dtr.monthLabel}{' '}
-                                                            {dtr.year}
-                                                        </td>
-                                                        <td className="px-3 py-3 text-muted-foreground">
-                                                            {formatConfirmedAt(
-                                                                dtr.confirmedAt,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-3 py-3">
-                                                            {dtr.totalDays}
-                                                        </td>
-                                                        <td className="px-3 py-3">
-                                                            {formatWorkedDuration(
-                                                                dtr.totalWorkedMinutes,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-3 py-3">
-                                                            {formatRateAmount(
-                                                                dtr.totalAmount,
-                                                            )}
-                                                        </td>
-                                                        <td className="px-3 py-3">
-                                                            <div className="flex flex-wrap gap-2">
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() =>
-                                                                        history.openDtr(
-                                                                            dtr,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    View
-                                                                </Button>
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() =>
-                                                                        history.exportDtrAsCsv(
-                                                                            dtr,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    Export CSV
-                                                                </Button>
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    onClick={() =>
-                                                                        history.reopenDtr(
-                                                                            dtr,
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    Edit
-                                                                </Button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {dtrs.map((dtr) => {
+                                                    const isDeleting =
+                                                        history.deletingDtrId ===
+                                                        dtr.id;
+
+                                                    return (
+                                                        <tr
+                                                            key={dtr.id}
+                                                            className="border-b align-top last:border-b-0 odd:bg-muted/10"
+                                                        >
+                                                            <td className="px-4 py-3 font-medium text-foreground">
+                                                                {
+                                                                    dtr.employeeName
+                                                                }
+                                                            </td>
+                                                            <td className="px-3 py-3">
+                                                                {dtr.monthLabel}{' '}
+                                                                {dtr.year}
+                                                            </td>
+                                                            <td className="px-3 py-3 text-muted-foreground">
+                                                                {formatConfirmedAt(
+                                                                    dtr.confirmedAt,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-3">
+                                                                {dtr.totalDays}
+                                                            </td>
+                                                            <td className="px-3 py-3">
+                                                                {formatWorkedDuration(
+                                                                    dtr.totalWorkedMinutes,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-3">
+                                                                {formatRateAmount(
+                                                                    dtr.totalAmount,
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-3">
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        disabled={
+                                                                            isDeleting
+                                                                        }
+                                                                        onClick={() =>
+                                                                            history.openDtr(
+                                                                                dtr,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        View
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        disabled={
+                                                                            isDeleting
+                                                                        }
+                                                                        onClick={() =>
+                                                                            history.exportDtrAsCsv(
+                                                                                dtr,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Export CSV
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        disabled={
+                                                                            isDeleting
+                                                                        }
+                                                                        onClick={() =>
+                                                                            history.reopenDtr(
+                                                                                dtr,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Edit
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="destructive"
+                                                                        disabled={
+                                                                            isDeleting
+                                                                        }
+                                                                        onClick={() =>
+                                                                            history.deleteDtr(
+                                                                                dtr,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        {isDeleting
+                                                                            ? 'Deleting...'
+                                                                            : 'Delete'}
+                                                                    </Button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
 
                                 <div className="space-y-3 md:hidden">
-                                    {dtrs.map((dtr) => (
-                                        <div
-                                            key={dtr.id}
-                                            className="rounded-lg border p-4"
-                                        >
-                                            <div className="space-y-1">
-                                                <p className="font-medium text-foreground">
-                                                    {dtr.employeeName}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {dtr.monthLabel} {dtr.year}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    Confirmed{' '}
-                                                    {formatConfirmedAt(
-                                                        dtr.confirmedAt,
-                                                    )}
-                                                </p>
-                                            </div>
+                                    {dtrs.map((dtr) => {
+                                        const isDeleting =
+                                            history.deletingDtrId === dtr.id;
 
-                                            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                                                <div>
-                                                    <p className="text-muted-foreground">
-                                                        Days
-                                                    </p>
+                                        return (
+                                            <div
+                                                key={dtr.id}
+                                                className="rounded-lg border p-4"
+                                            >
+                                                <div className="space-y-1">
                                                     <p className="font-medium text-foreground">
-                                                        {dtr.totalDays}
+                                                        {dtr.employeeName}
                                                     </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-muted-foreground">
-                                                        Hours
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {dtr.monthLabel}{' '}
+                                                        {dtr.year}
                                                     </p>
-                                                    <p className="font-medium text-foreground">
-                                                        {formatWorkedDuration(
-                                                            dtr.totalWorkedMinutes,
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Confirmed{' '}
+                                                        {formatConfirmedAt(
+                                                            dtr.confirmedAt,
                                                         )}
                                                     </p>
                                                 </div>
-                                                <div>
-                                                    <p className="text-muted-foreground">
-                                                        Rate
-                                                    </p>
-                                                    <p className="font-medium text-foreground">
-                                                        {formatRateAmount(
-                                                            dtr.totalAmount,
-                                                        )}
-                                                    </p>
+
+                                                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                                                    <div>
+                                                        <p className="text-muted-foreground">
+                                                            Days
+                                                        </p>
+                                                        <p className="font-medium text-foreground">
+                                                            {dtr.totalDays}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-muted-foreground">
+                                                            Hours
+                                                        </p>
+                                                        <p className="font-medium text-foreground">
+                                                            {formatWorkedDuration(
+                                                                dtr.totalWorkedMinutes,
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-muted-foreground">
+                                                            Rate
+                                                        </p>
+                                                        <p className="font-medium text-foreground">
+                                                            {formatRateAmount(
+                                                                dtr.totalAmount,
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-4 flex flex-wrap gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={isDeleting}
+                                                        onClick={() =>
+                                                            history.openDtr(dtr)
+                                                        }
+                                                    >
+                                                        View
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={isDeleting}
+                                                        onClick={() =>
+                                                            history.exportDtrAsCsv(
+                                                                dtr,
+                                                            )
+                                                        }
+                                                    >
+                                                        Export CSV
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        disabled={isDeleting}
+                                                        onClick={() =>
+                                                            history.reopenDtr(dtr)
+                                                        }
+                                                    >
+                                                        Edit
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        disabled={isDeleting}
+                                                        onClick={() =>
+                                                            history.deleteDtr(dtr)
+                                                        }
+                                                    >
+                                                        {isDeleting
+                                                            ? 'Deleting...'
+                                                            : 'Delete'}
+                                                    </Button>
                                                 </div>
                                             </div>
-
-                                            <div className="mt-4 flex flex-wrap gap-2">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        history.openDtr(dtr)
-                                                    }
-                                                >
-                                                    View
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        history.exportDtrAsCsv(
-                                                            dtr,
-                                                        )
-                                                    }
-                                                >
-                                                    Export CSV
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        history.reopenDtr(dtr)
-                                                    }
-                                                >
-                                                    Edit
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </>
                         )}
@@ -254,9 +321,11 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
 
                 <DtrDetailsDialog
                     dtr={history.selectedDtr}
+                    deletingId={history.deletingDtrId}
                     open={history.isDetailsDialogOpen}
-                    onOpenChange={history.handleDetailsDialogChange}
+                    onDelete={history.deleteDtr}
                     onExport={history.exportDtrAsCsv}
+                    onOpenChange={history.handleDetailsDialogChange}
                     onPrint={history.printDtr}
                     onReopen={history.reopenDtr}
                 />

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -33,9 +34,9 @@ export default function DailyAttendanceTableRow({
     onCheckComputation,
     onUpdate,
 }: DailyAttendanceTableRowProps) {
-    const workedDuration = formatWorkedDuration(
-        getWorkedMinutes(entry.timeIn, entry.timeOut),
-    );
+    const workedDuration = entry.isAbsent
+        ? formatWorkedDuration(0)
+        : formatWorkedDuration(getWorkedMinutes(entry.timeIn, entry.timeOut));
 
     return (
         <tr className="border-b align-middle odd:bg-muted/10 last:border-b-0">
@@ -49,7 +50,8 @@ export default function DailyAttendanceTableRow({
                 <Input
                     id={`desktop-time-in-${day.key}`}
                     type="time"
-                    value={entry.timeIn}
+                    value={entry.isAbsent ? '' : entry.timeIn}
+                    disabled={entry.isAbsent}
                     onChange={(event) => onUpdate('timeIn', event.target.value)}
                     className="min-w-[128px]"
                 />
@@ -58,14 +60,16 @@ export default function DailyAttendanceTableRow({
                 <Input
                     id={`desktop-time-out-${day.key}`}
                     type="time"
-                    value={entry.timeOut}
+                    value={entry.isAbsent ? '' : entry.timeOut}
+                    disabled={entry.isAbsent}
                     onChange={(event) => onUpdate('timeOut', event.target.value)}
                     className="min-w-[128px]"
                 />
             </td>
             <td className="px-3 py-3 align-middle">
                 <Select
-                    value={entry.holidayType}
+                    value={entry.isAbsent ? 'none' : entry.holidayType}
+                    disabled={entry.isAbsent}
                     onValueChange={(value) =>
                         onUpdate('holidayType', value as HolidayType)
                     }
@@ -89,6 +93,21 @@ export default function DailyAttendanceTableRow({
                 </Select>
             </td>
             <td className="px-3 py-3 align-middle">
+                <label
+                    htmlFor={`desktop-absent-${day.key}`}
+                    className="flex items-center gap-2 text-sm font-medium text-foreground"
+                >
+                    <Checkbox
+                        id={`desktop-absent-${day.key}`}
+                        checked={entry.isAbsent}
+                        onCheckedChange={(checked) =>
+                            onUpdate('isAbsent', checked === true)
+                        }
+                    />
+                    Absent
+                </label>
+            </td>
+            <td className="px-3 py-3 align-middle">
                 <div className="inline-flex h-10 min-w-[96px] items-center rounded-md border bg-muted/30 px-3 text-sm font-medium text-foreground">
                     {workedDuration}
                 </div>
@@ -101,7 +120,8 @@ export default function DailyAttendanceTableRow({
                         inputMode="decimal"
                         min="0"
                         step="0.01"
-                        value={entry.rate}
+                        value={entry.isAbsent ? '0.00' : entry.rate}
+                        disabled={entry.isAbsent}
                         onChange={(event) => onUpdate('rate', event.target.value)}
                         className="min-w-[120px] text-right"
                     />

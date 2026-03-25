@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Dtr;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,6 +22,7 @@ class SummaryController extends Controller
             ->get();
 
         return Inertia::render('summary/index', [
+            'successMessage' => session('success'),
             'dtrs' => $dtrRecords->map(function (Dtr $dtr): array {
                 $periodDate = $this->resolvedPeriodDate($dtr);
 
@@ -59,6 +61,13 @@ class SummaryController extends Controller
                 ];
             })->values()->all(),
         ]);
+    }
+
+    public function destroy(Dtr $dtr): RedirectResponse
+    {
+        $dtr->delete();
+
+        return to_route('summary.index')->with('success', 'DTR deleted successfully.');
     }
 
     protected function resolvedPeriodDate(Dtr $dtr): Carbon
