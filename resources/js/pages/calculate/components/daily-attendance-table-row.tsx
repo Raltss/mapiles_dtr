@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -19,6 +20,7 @@ import {
 type DailyAttendanceTableRowProps = {
     day: MonthDay;
     entry: AttendanceEntry;
+    onCheckComputation: () => void;
     onUpdate: (
         field: AttendanceField,
         value: AttendanceEntry[AttendanceField],
@@ -28,6 +30,7 @@ type DailyAttendanceTableRowProps = {
 export default function DailyAttendanceTableRow({
     day,
     entry,
+    onCheckComputation,
     onUpdate,
 }: DailyAttendanceTableRowProps) {
     const workedDuration = formatWorkedDuration(
@@ -91,16 +94,27 @@ export default function DailyAttendanceTableRow({
                 </div>
             </td>
             <td className="px-3 py-3 align-middle">
-                <Input
-                    id={`desktop-rate-${day.key}`}
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={entry.rate}
-                    onChange={(event) => onUpdate('rate', event.target.value)}
-                    className="min-w-[120px] text-right"
-                />
+                <div className="flex min-w-[320px] items-center gap-2">
+                    <Input
+                        id={`desktop-rate-${day.key}`}
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={entry.rate}
+                        onChange={(event) => onUpdate('rate', event.target.value)}
+                        className="min-w-[120px] text-right"
+                    />
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={onCheckComputation}
+                    >
+                        Check computation
+                    </Button>
+                </div>
             </td>
         </tr>
     );

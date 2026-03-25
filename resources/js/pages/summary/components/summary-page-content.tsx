@@ -33,34 +33,6 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
                     title="Summary"
                     description="Review previously confirmed DTRs, reopen them for editing, print them, or export them as CSV."
                 />
-
-                <div className="grid gap-4 md:grid-cols-3">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Confirmed DTRs</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {history.overview.totalDtrs}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Total hours</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {history.overview.totalWorkedDuration}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardDescription>Total rate</CardDescription>
-                            <CardTitle className="text-3xl">
-                                {history.overview.totalAmountLabel}
-                            </CardTitle>
-                        </CardHeader>
-                    </Card>
-                </div>
-
                 <Card>
                     <CardHeader>
                         <CardTitle>Confirmed DTR History</CardTitle>
@@ -114,7 +86,7 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
                                                 {dtrs.map((dtr) => (
                                                     <tr
                                                         key={dtr.id}
-                                                        className="border-b align-top odd:bg-muted/10 last:border-b-0"
+                                                        className="border-b align-top last:border-b-0 odd:bg-muted/10"
                                                     >
                                                         <td className="px-4 py-3 font-medium text-foreground">
                                                             {dtr.employeeName}
@@ -165,7 +137,7 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
                                                                         )
                                                                     }
                                                                 >
-                                                                    CSV
+                                                                    Export CSV
                                                                 </Button>
                                                                 <Button
                                                                     type="button"
@@ -176,7 +148,7 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
                                                                         )
                                                                     }
                                                                 >
-                                                                    Reopen
+                                                                    Edit
                                                                 </Button>
                                                             </div>
                                                         </td>
@@ -260,7 +232,7 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
                                                         )
                                                     }
                                                 >
-                                                    CSV
+                                                    Export CSV
                                                 </Button>
                                                 <Button
                                                     type="button"
@@ -269,7 +241,7 @@ export default function SummaryPageContent({ dtrs }: SummaryPageProps) {
                                                         history.reopenDtr(dtr)
                                                     }
                                                 >
-                                                    Reopen
+                                                    Edit
                                                 </Button>
                                             </div>
                                         </div>
