@@ -1,4 +1,4 @@
-﻿import { router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import Papa from 'papaparse';
 import { useState } from 'react';
 import { index as calculateIndex } from '@/routes/calculate';
@@ -7,10 +7,7 @@ import {
     formatWorkedDuration,
     getHolidayLabel,
 } from '../../calculate/helpers/calculate-page';
-import {
-    formatConfirmedAt,
-    type SummaryDtr,
-} from '../helpers/summary-page';
+import { formatConfirmedAt, type SummaryDtr } from '../helpers/summary-page';
 
 function escapeHtml(value: string): string {
     return value
@@ -74,7 +71,6 @@ export function useDtrHistory(dtrs: SummaryDtr[]) {
 
     const exportDtrAsCsv = (dtr: SummaryDtr) => {
         const rows = dtr.entries.map((entry) => ({
-            Employee: dtr.employeeName,
             Date: entry.date,
             Weekday: entry.weekday,
             'Time In': entry.timeIn || '--',
@@ -88,7 +84,10 @@ export function useDtrHistory(dtrs: SummaryDtr[]) {
         const csv = Papa.unparse(rows);
         const filename = `dtr-${dtr.employeeName
             .toLowerCase()
-            .replaceAll(/[^a-z0-9]+/g, '-')}-${dtr.year}-${String(dtr.month).padStart(2, '0')}.csv`;
+            .replaceAll(
+                /[^a-z0-9]+/g,
+                '-',
+            )}-${dtr.year}-${String(dtr.month).padStart(2, '0')}.csv`;
 
         downloadCsv(filename, csv);
     };
