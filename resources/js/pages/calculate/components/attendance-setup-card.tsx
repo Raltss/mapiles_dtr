@@ -100,4 +100,3 @@ export default function AttendanceSetupCard({
         </Card>
     );
 }
-2;

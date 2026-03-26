@@ -77,7 +77,9 @@ export type RateComputationDetails = {
     isAbsent: boolean;
 };
 
-function buildInitialAttendanceEntries(activeDtr: ActiveDtr | null | undefined) {
+function buildInitialAttendanceEntries(
+    activeDtr: ActiveDtr | null | undefined,
+) {
     if (!activeDtr) {
         return {} as Record<string, AttendanceEntry>;
     }
@@ -147,7 +149,8 @@ export function useCalculateAttendance(
         employees[0]?.id.toString() ??
         '';
 
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState(initialEmployeeId);
+    const [selectedEmployeeId, setSelectedEmployeeId] =
+        useState(initialEmployeeId);
     const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
     const [selectedYear, setSelectedYear] = useState(currentYear.toString());
     const [currentPage, setCurrentPage] = useState(1);
@@ -156,8 +159,9 @@ export function useCalculateAttendance(
     >(() => buildInitialAttendanceEntries(activeDtr));
     const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false);
     const [isSubmittingDtr, setIsSubmittingDtr] = useState(false);
-    const [selectedComputationDayKey, setSelectedComputationDayKey] =
-        useState<string | null>(null);
+    const [selectedComputationDayKey, setSelectedComputationDayKey] = useState<
+        string | null
+    >(null);
 
     const selectedEmployee =
         employees.find(
@@ -199,7 +203,9 @@ export function useCalculateAttendance(
     const getStoredAttendanceEntry = (dateKey: string) => {
         const entryKey = getAttendanceEntryKey(selectedEmployeeId, dateKey);
 
-        return attendanceEntries[entryKey] ?? getDefaultAttendanceEntry(dateKey);
+        return (
+            attendanceEntries[entryKey] ?? getDefaultAttendanceEntry(dateKey)
+        );
     };
 
     const getAttendanceEntry = (dateKey: string) => {
@@ -267,7 +273,9 @@ export function useCalculateAttendance(
         const entry = getAttendanceEntry(day.key);
         const effectiveTimeIn = entry.isAbsent ? '' : entry.timeIn;
         const effectiveTimeOut = entry.isAbsent ? '' : entry.timeOut;
-        const effectiveHolidayType = entry.isAbsent ? 'none' : entry.holidayType;
+        const effectiveHolidayType = entry.isAbsent
+            ? 'none'
+            : entry.holidayType;
         const effectiveBaseRate = entry.isAbsent ? absentRate : entry.baseRate;
         const effectiveRate = entry.isAbsent ? absentRate : entry.rate;
         const workedMinutes = entry.isAbsent
@@ -362,10 +370,16 @@ export function useCalculateAttendance(
             };
         }
 
-        const shiftDuration = getShiftDurationMinutes(entry.timeIn, entry.timeOut);
+        const shiftDuration = getShiftDurationMinutes(
+            entry.timeIn,
+            entry.timeOut,
+        );
         const workedMinutes = getWorkedMinutes(entry.timeIn, entry.timeOut);
         const multiplier = getHolidayMultiplier(entry.holidayType);
-        const adjustedRate = getAdjustedDailyRate(entry.baseRate, entry.holidayType);
+        const adjustedRate = getAdjustedDailyRate(
+            entry.baseRate,
+            entry.holidayType,
+        );
         const lateMinutes = getLateMinutes(
             entry.timeIn,
             day.defaultTimeIn,
@@ -374,7 +388,8 @@ export function useCalculateAttendance(
         const isHalfDay = isHalfDayTimeIn(entry.timeIn, day.defaultTimeIn);
         const attendanceStatusLabel = getAttendanceStatusLabel(day, entry);
         const hasBaseRate =
-            entry.baseRate.trim() !== '' && Number.isFinite(Number(entry.baseRate));
+            entry.baseRate.trim() !== '' &&
+            Number.isFinite(Number(entry.baseRate));
         const hasAdjustedRate =
             adjustedRate.trim() !== '' && Number.isFinite(Number(adjustedRate));
         const hasRate =
@@ -424,7 +439,9 @@ export function useCalculateAttendance(
                 entry.holidayType,
             ),
             multiplierLabel: `${multiplier.toFixed(2)}x`,
-            baseRateLabel: hasBaseRate ? formatRateAmount(entry.baseRate) : '--',
+            baseRateLabel: hasBaseRate
+                ? formatRateAmount(entry.baseRate)
+                : '--',
             rateLabel: hasRate ? formatRateAmount(entry.rate) : '--',
             rateFormulaLabel,
             isAbsent: false,
@@ -570,13 +587,15 @@ export function useCalculateAttendance(
                 year: Number(selectedYear),
                 ...(isEditingFromSummary ? { source: 'summary' } : {}),
                 entries: summaryEntryData.map((entry) => ({
-                    date: entry.key,
-                    time_in: entry.timeIn || null,
-                    time_out: entry.timeOut || null,
-                    holiday_type: entry.holidayType,
-                    base_rate: entry.baseRate,
-                    rate: entry.rate,
-                    is_absent: entry.isAbsent,
+                    key: entry.key,
+                    label: entry.label,
+                    weekday: entry.weekday,
+                    timeIn: entry.timeIn,
+                    timeOut: entry.timeOut,
+                    holidayLabel: entry.holidayLabel,
+                    workedDuration: entry.workedDuration,
+                    rateLabel: entry.rateLabel,
+                    isAbsent: entry.isAbsent,
                 })),
             },
             {
