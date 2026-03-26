@@ -12,7 +12,6 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
 import { index as calculateIndex } from '@/routes/calculate';
 import { index as employeesIndex } from '@/routes/employees';
 import { index as rankingIndex } from '@/routes/ranking';
@@ -49,7 +48,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href={employeesIndex()} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -67,3 +66,4 @@ export function AppSidebar() {
         </Sidebar>
     );
 }
+
