@@ -288,8 +288,8 @@ test('overtime totals are computed when worked minutes exceed the scheduled dura
     expect($dtr->total_days)->toBe(1)
         ->and($dtr->total_worked_minutes)->toBe(600)
         ->and($dtr->total_overtime_minutes)->toBe(120)
-        ->and((string) $dtr->total_overtime_amount)->toBe('2000.00')
-        ->and((string) $dtr->total_amount)->toBe('2800.00')
+        ->and((string) $dtr->total_overtime_amount)->toBe('250.00')
+        ->and((string) $dtr->total_amount)->toBe('1050.00')
         ->and($entry->worked_minutes)->toBe(600)
         ->and((string) $entry->rate)->toBe('800.00');
 });

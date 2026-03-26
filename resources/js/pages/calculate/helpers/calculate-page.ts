@@ -146,6 +146,7 @@ export const holidayOptions: Array<{ label: string; value: HolidayType }> = [
 
 export const daysPerPage = 7;
 export const breakMinutesPerShift = 60;
+export const workHoursPerDay = 8;
 export const halfDayThresholdMinutes = 180;
 export const overtimePremiumRate = 0.25;
 
@@ -225,8 +226,8 @@ export function getAttendanceCalendarPeriodLabel(
     value: AttendanceCalendarRange,
 ): string {
     const monthLabel =
-        monthOptions.find((monthOption) => monthOption.value === month)?.label ??
-        'Selected month';
+        monthOptions.find((monthOption) => monthOption.value === month)
+            ?.label ?? 'Selected month';
 
     if (value === 'wholeMonth') {
         return `${monthLabel} ${year}`;
@@ -365,21 +366,23 @@ export function buildOvertimeSummary(
     totalMinutes: number,
     dailyRate: string,
 ): OvertimeSummaryBreakdown {
-    const parsedRateBasis = Number(dailyRate);
+    const parsedDailyRate = Number(dailyRate);
     const hasRateBasis =
-        dailyRate.trim() !== '' && Number.isFinite(parsedRateBasis);
-    const safeRateBasis = hasRateBasis ? parsedRateBasis : 0;
+        dailyRate.trim() !== '' && Number.isFinite(parsedDailyRate);
+    const safeHourlyRateBasis = hasRateBasis
+        ? parsedDailyRate / workHoursPerDay
+        : 0;
     const totalHours = totalMinutes / 60;
-    const baseAmount = totalHours * safeRateBasis;
+    const baseAmount = totalHours * safeHourlyRateBasis;
     const premiumAmount = baseAmount * overtimePremiumRate;
     const totalAmount = baseAmount + premiumAmount;
 
     let formulaLabel = 'No overtime minutes were recorded for this DTR.';
 
     if (totalMinutes > 0 && !hasRateBasis) {
-        formulaLabel = `${totalMinutes} overtime minutes were recorded, but the employee daily rate is unavailable so overtime pay stays ${formatRateAmount(0)}.`;
+        formulaLabel = `${totalMinutes} overtime minutes were recorded, but the employee hourly rate is unavailable so overtime pay stays ${formatRateAmount(0)}.`;
     } else if (totalMinutes > 0) {
-        formulaLabel = `${totalMinutes} mins / 60 = ${formatDecimalHours(totalHours)} hours. ${formatDecimalHours(totalHours)} x ${formatRateAmount(safeRateBasis)} = ${formatRateAmount(baseAmount)}. ${formatRateAmount(baseAmount)} + 25% (${formatRateAmount(premiumAmount)}) = ${formatRateAmount(totalAmount)}.`;
+        formulaLabel = `${totalMinutes} mins / 60 = ${formatDecimalHours(totalHours)} hours. ${formatDecimalHours(totalHours)} x ${formatRateAmount(safeHourlyRateBasis)} = ${formatRateAmount(baseAmount)}. ${formatRateAmount(baseAmount)} + 25% (${formatRateAmount(premiumAmount)}) = ${formatRateAmount(totalAmount)}.`;
     }
 
     return {
@@ -387,8 +390,10 @@ export function buildOvertimeSummary(
         totalDurationLabel: formatWorkedDuration(totalMinutes),
         totalHours,
         totalHoursLabel: `${formatDecimalHours(totalHours)} hours`,
-        rateBasis: hasRateBasis ? safeRateBasis.toFixed(2) : '',
-        rateBasisLabel: hasRateBasis ? formatRateAmount(safeRateBasis) : '--',
+        rateBasis: hasRateBasis ? safeHourlyRateBasis.toFixed(2) : '',
+        rateBasisLabel: hasRateBasis
+            ? formatRateAmount(safeHourlyRateBasis)
+            : '--',
         baseAmount,
         baseAmountLabel: formatRateAmount(baseAmount),
         premiumRateLabel: `${Math.round(overtimePremiumRate * 100)}%`,

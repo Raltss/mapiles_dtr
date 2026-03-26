@@ -108,7 +108,7 @@ export default function DtrSummaryDialog({
                             </div>
                             <div className="rounded-lg border bg-background p-4">
                                 <p className="text-sm text-muted-foreground">
-                                    Daily rate basis
+                                    Hourly rate basis
                                 </p>
                                 <p className="mt-1 font-medium text-foreground">
                                     {summary.overtime.rateBasisLabel}

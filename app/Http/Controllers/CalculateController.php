@@ -19,6 +19,8 @@ class CalculateController extends Controller
 {
     private const WORK_DAYS_PER_MONTH = 26;
 
+    private const WORK_HOURS_PER_DAY = 8;
+
     private const BREAK_MINUTES_PER_SHIFT = 60;
 
     private const HALF_DAY_THRESHOLD_MINUTES = 180;
@@ -353,7 +355,26 @@ class CalculateController extends Controller
             );
         }
 
+        if ($employee->hourly_rate !== null) {
+            return $this->formatRate((float) $employee->hourly_rate * self::WORK_HOURS_PER_DAY);
+        }
+
         return '';
+    }
+
+    protected function resolvedHourlyRate(Employee $employee): string
+    {
+        if ($employee->hourly_rate !== null) {
+            return (string) $employee->hourly_rate;
+        }
+
+        $dailyRate = $this->resolvedDailyRate($employee);
+
+        if ($dailyRate === '') {
+            return '';
+        }
+
+        return $this->formatRate((float) $dailyRate / self::WORK_HOURS_PER_DAY);
     }
 
     /**
@@ -487,13 +508,13 @@ class CalculateController extends Controller
             return 0;
         }
 
-        $dailyRate = $this->resolvedDailyRate($employee);
+        $hourlyRate = $this->resolvedHourlyRate($employee);
 
-        if ($dailyRate === '') {
+        if ($hourlyRate === '') {
             return 0;
         }
 
-        $baseOvertimeAmount = ($totalOvertimeMinutes / 60) * (float) $dailyRate;
+        $baseOvertimeAmount = ($totalOvertimeMinutes / 60) * (float) $hourlyRate;
 
         return $baseOvertimeAmount * (1 + self::OVERTIME_PREMIUM_RATE);
     }

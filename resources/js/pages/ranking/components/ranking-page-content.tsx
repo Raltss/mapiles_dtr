@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import Papa from 'papaparse';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +21,7 @@ import AppLayout from '@/layouts/app-layout';
 import { index as rankingIndex } from '@/routes/ranking';
 import {
     attendanceCalendarRangeOptions,
+    getAttendanceCalendarRangeLabel,
     monthOptions,
     type AttendanceCalendarRange,
 } from '../../calculate/helpers/calculate-page';
@@ -31,6 +33,32 @@ import {
     type RankingPageProps,
 } from '../helpers/ranking-page';
 
+function downloadCsv(filename: string, csv: string) {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+}
+
+function getCalendarRangeFilenameSegment(
+    value: AttendanceCalendarRange,
+): string {
+    switch (value) {
+        case 'firstTwoWeeks':
+            return 'first-two-weeks';
+        case 'lastTwoWeeks':
+            return 'last-two-weeks';
+        case 'wholeMonth':
+        default:
+            return 'whole-month';
+    }
+}
+
 export default function RankingPageContent({
     rankings,
     yearOptions,
@@ -39,11 +67,15 @@ export default function RankingPageContent({
     const selectedMonth = initialSelection.month.toString();
     const selectedYear = initialSelection.year.toString();
     const selectedCalendarRange = initialSelection.calendarRange;
+    const calendarRangeLabel = getAttendanceCalendarRangeLabel(
+        selectedCalendarRange,
+    );
     const periodLabel = getRankingPeriodLabel(
         initialSelection.month,
         initialSelection.year,
         selectedCalendarRange,
     );
+    const exportFilename = `ranking-${initialSelection.year}-${selectedMonth.padStart(2, '0')}-${getCalendarRangeFilenameSegment(selectedCalendarRange)}.csv`;
 
     const visitWithFilters = (filters: {
         month: string;
@@ -69,6 +101,26 @@ export default function RankingPageContent({
         );
     };
 
+    const exportRankingsAsCsv = () => {
+        if (rankings.length === 0) {
+            return;
+        }
+
+        const rows = rankings.map((ranking) => ({
+            Rank: ranking.rank,
+            Employee: ranking.employeeName,
+            Period: periodLabel,
+            'Calendar Range': calendarRangeLabel,
+            Punctuality: formatPunctualityScore(ranking.punctualityScore),
+            'On-time Days': ranking.onTimeDays,
+            'Late Days': ranking.lateDays,
+            'Late Minutes': ranking.totalLateMinutes,
+            'Evaluated Days': ranking.evaluatedDays,
+        }));
+
+        downloadCsv(exportFilename, Papa.unparse(rows));
+    };
+
     const topEmployee = rankings[0] ?? null;
 
     return (
@@ -76,10 +128,20 @@ export default function RankingPageContent({
             <Head title="Ranking" />
 
             <div className="flex flex-1 flex-col gap-6 p-5 md:p-6">
-                <Heading
-                    title="Ranking"
-                    description="Compare employees by punctuality only. Overtime is not part of this ranking. Employees are ranked by how consistently they arrive on time within the selected period."
-                />
+                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <Heading
+                        title="Ranking"
+                        description="Compare employees by punctuality only. Overtime is not part of this ranking. Employees are ranked by how consistently they arrive on time within the selected period."
+                    />
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={rankings.length === 0}
+                        onClick={exportRankingsAsCsv}
+                    >
+                        Export CSV
+                    </Button>
+                </div>
 
                 <Card>
                     <CardHeader>
@@ -281,7 +343,9 @@ export default function RankingPageContent({
                                                             #{ranking.rank}
                                                         </td>
                                                         <td className="px-3 py-3 font-medium text-foreground">
-                                                            {ranking.employeeName}
+                                                            {
+                                                                ranking.employeeName
+                                                            }
                                                         </td>
                                                         <td className="px-3 py-3">
                                                             {formatPunctualityScore(
@@ -300,7 +364,9 @@ export default function RankingPageContent({
                                                             )}
                                                         </td>
                                                         <td className="px-3 py-3">
-                                                            {ranking.evaluatedDays}
+                                                            {
+                                                                ranking.evaluatedDays
+                                                            }
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -334,8 +400,7 @@ export default function RankingPageContent({
                                                     size="sm"
                                                     disabled
                                                 >
-                                                    {ranking.evaluatedDays}{' '}
-                                                    days
+                                                    {ranking.evaluatedDays} days
                                                 </Button>
                                             </div>
 
