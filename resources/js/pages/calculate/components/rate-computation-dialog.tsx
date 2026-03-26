@@ -93,6 +93,26 @@ export default function RateComputationDialog({
                                 value={computation.baseRateLabel}
                             />
                             <DetailRow
+                                label="Scheduled time in"
+                                value={computation.scheduledTimeInLabel}
+                            />
+                            <DetailRow
+                                label="Grace period"
+                                value={computation.gracePeriodLabel}
+                            />
+                            <DetailRow
+                                label="Attendance status"
+                                value={computation.attendanceStatusLabel}
+                            />
+                            <DetailRow
+                                label="Late minutes"
+                                value={computation.lateMinutesLabel}
+                            />
+                            <DetailRow
+                                label="Late deduction"
+                                value={computation.lateDeductionLabel}
+                            />
+                            <DetailRow
                                 label="Holiday type"
                                 value={computation.holidayLabel}
                             />

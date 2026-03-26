@@ -12,10 +12,13 @@ import {
     getAdjustedDailyRate,
     getAttendanceEntryKey,
     getBaseDailyRate,
+    getComputedDailyRate,
     getHolidayLabel,
     getHolidayMultiplier,
+    getLateMinutes,
     getShiftDurationMinutes,
     getWorkedMinutes,
+    isHalfDayTimeIn,
     monthOptions,
     type ActiveDtr,
     type AttendanceEntry,
@@ -56,6 +59,11 @@ export type RateComputationDetails = {
     weekday: string;
     timeIn: string;
     timeOut: string;
+    scheduledTimeInLabel: string;
+    gracePeriodLabel: string;
+    attendanceStatusLabel: string;
+    lateMinutesLabel: string;
+    lateDeductionLabel: string;
     shiftDurationLabel: string;
     breakDurationLabel: string;
     workedDurationLabel: string;
@@ -69,7 +77,9 @@ export type RateComputationDetails = {
     isAbsent: boolean;
 };
 
-function buildInitialAttendanceEntries(activeDtr: ActiveDtr | null | undefined) {
+function buildInitialAttendanceEntries(
+    activeDtr: ActiveDtr | null | undefined,
+) {
     if (!activeDtr) {
         return {} as Record<string, AttendanceEntry>;
     }
@@ -103,6 +113,14 @@ function getHolidayAdjustmentLabel(holidayType: HolidayType): string {
     }
 }
 
+function formatMinuteCount(value: number): string {
+    return `${value} minute${value === 1 ? '' : 's'}`;
+}
+
+function formatGracePeriod(value: number): string {
+    return `${formatMinuteCount(value)} grace`;
+}
+
 function hasMeaningfulAttendanceValues(entry: AttendanceEntry): boolean {
     return (
         entry.timeIn.trim() !== '' ||
@@ -131,7 +149,8 @@ export function useCalculateAttendance(
         employees[0]?.id.toString() ??
         '';
 
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState(initialEmployeeId);
+    const [selectedEmployeeId, setSelectedEmployeeId] =
+        useState(initialEmployeeId);
     const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
     const [selectedYear, setSelectedYear] = useState(currentYear.toString());
     const [currentPage, setCurrentPage] = useState(1);
@@ -140,8 +159,9 @@ export function useCalculateAttendance(
     >(() => buildInitialAttendanceEntries(activeDtr));
     const [isSummaryDialogOpen, setIsSummaryDialogOpen] = useState(false);
     const [isSubmittingDtr, setIsSubmittingDtr] = useState(false);
-    const [selectedComputationDayKey, setSelectedComputationDayKey] =
-        useState<string | null>(null);
+    const [selectedComputationDayKey, setSelectedComputationDayKey] = useState<
+        string | null
+    >(null);
 
     const selectedEmployee =
         employees.find(
@@ -167,8 +187,11 @@ export function useCalculateAttendance(
         monthOptions.find((month) => month.value.toString() === selectedMonth)
             ?.label ?? 'Selected month';
 
+    const getScheduledDay = (dateKey: string) =>
+        monthDays.find((day) => day.key === dateKey) ?? null;
+
     const getDefaultAttendanceEntry = (dateKey: string) => {
-        const scheduledDay = monthDays.find((day) => day.key === dateKey);
+        const scheduledDay = getScheduledDay(dateKey);
 
         return createAttendanceEntry({
             dailyRate: selectedEmployee?.dailyRate ?? '',
@@ -177,17 +200,82 @@ export function useCalculateAttendance(
         });
     };
 
-    const getAttendanceEntry = (dateKey: string) => {
+    const getStoredAttendanceEntry = (dateKey: string) => {
         const entryKey = getAttendanceEntryKey(selectedEmployeeId, dateKey);
 
-        return attendanceEntries[entryKey] ?? getDefaultAttendanceEntry(dateKey);
+        return (
+            attendanceEntries[entryKey] ?? getDefaultAttendanceEntry(dateKey)
+        );
+    };
+
+    const getAttendanceEntry = (dateKey: string) => {
+        const entry = getStoredAttendanceEntry(dateKey);
+        const scheduledDay = getScheduledDay(dateKey);
+
+        if (!scheduledDay) {
+            return entry;
+        }
+
+        if (entry.isAbsent) {
+            return {
+                ...entry,
+                baseRate: absentRate,
+                rate: absentRate,
+            };
+        }
+
+        return {
+            ...entry,
+            rate: getComputedDailyRate(
+                entry.baseRate,
+                entry.holidayType,
+                entry.timeIn,
+                scheduledDay.defaultTimeIn,
+                scheduledDay.graceMinutes,
+            ),
+        };
+    };
+
+    const getAttendanceStatusLabel = (
+        day: MonthDay,
+        entry: AttendanceEntry,
+    ): string => {
+        if (entry.isAbsent) {
+            return 'Absent';
+        }
+
+        if (entry.timeIn.trim() === '') {
+            return 'Waiting for time in';
+        }
+
+        if (day.defaultTimeIn.trim() === '') {
+            return 'No scheduled start';
+        }
+
+        if (isHalfDayTimeIn(entry.timeIn, day.defaultTimeIn)) {
+            return 'Half day';
+        }
+
+        const lateMinutes = getLateMinutes(
+            entry.timeIn,
+            day.defaultTimeIn,
+            day.graceMinutes,
+        );
+
+        if (lateMinutes === null) {
+            return 'Enter a valid time in';
+        }
+
+        return lateMinutes > 0 ? 'Late' : 'On time';
     };
 
     const summaryEntryData = monthDays.map((day) => {
         const entry = getAttendanceEntry(day.key);
         const effectiveTimeIn = entry.isAbsent ? '' : entry.timeIn;
         const effectiveTimeOut = entry.isAbsent ? '' : entry.timeOut;
-        const effectiveHolidayType = entry.isAbsent ? 'none' : entry.holidayType;
+        const effectiveHolidayType = entry.isAbsent
+            ? 'none'
+            : entry.holidayType;
         const effectiveBaseRate = entry.isAbsent ? absentRate : entry.baseRate;
         const effectiveRate = entry.isAbsent ? absentRate : entry.rate;
         const workedMinutes = entry.isAbsent
@@ -235,22 +323,25 @@ export function useCalculateAttendance(
                 0,
             ),
         ),
-        entries: summaryEntryData.map(
-            ({
-                workedMinutes,
-                rateAmount,
-                rate,
-                baseRate,
-                holidayType,
-                ...entry
-            }) => entry,
-        ),
+        entries: summaryEntryData.map((entry) => ({
+            key: entry.key,
+            label: entry.label,
+            weekday: entry.weekday,
+            timeIn: entry.timeIn,
+            timeOut: entry.timeOut,
+            holidayLabel: entry.holidayLabel,
+            workedDuration: entry.workedDuration,
+            rateLabel: entry.rateLabel,
+            isAbsent: entry.isAbsent,
+        })),
     };
 
     const buildRateComputationDetails = (
         day: MonthDay,
     ): RateComputationDetails => {
         const entry = getAttendanceEntry(day.key);
+        const scheduledTimeInLabel = day.defaultTimeIn || '--';
+        const gracePeriodLabel = formatGracePeriod(day.graceMinutes);
 
         if (entry.isAbsent) {
             return {
@@ -259,6 +350,11 @@ export function useCalculateAttendance(
                 weekday: day.weekday,
                 timeIn: '--',
                 timeOut: '--',
+                scheduledTimeInLabel,
+                gracePeriodLabel,
+                attendanceStatusLabel: 'Absent',
+                lateMinutesLabel: 'N/A',
+                lateDeductionLabel: 'N/A',
                 shiftDurationLabel: '--',
                 breakDurationLabel: '--',
                 workedDurationLabel: formatWorkedDuration(0),
@@ -275,13 +371,48 @@ export function useCalculateAttendance(
             };
         }
 
-        const shiftDuration = getShiftDurationMinutes(entry.timeIn, entry.timeOut);
+        const shiftDuration = getShiftDurationMinutes(
+            entry.timeIn,
+            entry.timeOut,
+        );
         const workedMinutes = getWorkedMinutes(entry.timeIn, entry.timeOut);
         const multiplier = getHolidayMultiplier(entry.holidayType);
+        const adjustedRate = getAdjustedDailyRate(
+            entry.baseRate,
+            entry.holidayType,
+        );
+        const lateMinutes = getLateMinutes(
+            entry.timeIn,
+            day.defaultTimeIn,
+            day.graceMinutes,
+        );
+        const isHalfDay = isHalfDayTimeIn(entry.timeIn, day.defaultTimeIn);
+        const attendanceStatusLabel = getAttendanceStatusLabel(day, entry);
         const hasBaseRate =
-            entry.baseRate.trim() !== '' && Number.isFinite(Number(entry.baseRate));
+            entry.baseRate.trim() !== '' &&
+            Number.isFinite(Number(entry.baseRate));
+        const hasAdjustedRate =
+            adjustedRate.trim() !== '' && Number.isFinite(Number(adjustedRate));
         const hasRate =
             entry.rate.trim() !== '' && Number.isFinite(Number(entry.rate));
+
+        let lateMinutesLabel = '--';
+        let lateDeductionLabel = '--';
+        let rateFormulaLabel = 'No base rate available for this employee.';
+
+        if (hasAdjustedRate && hasRate) {
+            if (isHalfDay) {
+                lateMinutesLabel = 'N/A';
+                lateDeductionLabel = 'N/A';
+                rateFormulaLabel = `${formatRateAmount(adjustedRate)} / 2 = ${formatRateAmount(entry.rate)} because ${entry.timeIn} is 3 hours or more after the scheduled ${scheduledTimeInLabel}.`;
+            } else if (lateMinutes === null) {
+                rateFormulaLabel = `${formatRateAmount(adjustedRate)} before late deduction. Enter a valid time in to check lateness.`;
+            } else {
+                lateMinutesLabel = formatMinuteCount(lateMinutes);
+                lateDeductionLabel = formatRateAmount(lateMinutes);
+                rateFormulaLabel = `${formatRateAmount(adjustedRate)} - ${formatRateAmount(lateMinutes)} = ${formatRateAmount(entry.rate)}.`;
+            }
+        }
 
         return {
             key: day.key,
@@ -289,6 +420,11 @@ export function useCalculateAttendance(
             weekday: day.weekday,
             timeIn: entry.timeIn || '--',
             timeOut: entry.timeOut || '--',
+            scheduledTimeInLabel,
+            gracePeriodLabel,
+            attendanceStatusLabel,
+            lateMinutesLabel,
+            lateDeductionLabel,
             shiftDurationLabel: formatWorkedDuration(shiftDuration),
             breakDurationLabel:
                 shiftDuration === null
@@ -297,19 +433,18 @@ export function useCalculateAttendance(
             workedDurationLabel: formatWorkedDuration(workedMinutes),
             timeFormulaLabel:
                 shiftDuration === null || workedMinutes === null
-                    ? 'Enter both time in and time out to compute hours worked.'
-                    : `${entry.timeIn} to ${entry.timeOut} = ${formatWorkedDuration(shiftDuration)} minus ${formatWorkedDuration(breakMinutesPerShift)} break = ${formatWorkedDuration(workedMinutes)}`,
+                    ? `Scheduled shift: ${scheduledTimeInLabel} to ${day.defaultTimeOut || '--'}. Enter both time in and time out to compute hours worked.`
+                    : `Scheduled shift: ${scheduledTimeInLabel} to ${day.defaultTimeOut || '--'}. ${entry.timeIn} to ${entry.timeOut} = ${formatWorkedDuration(shiftDuration)} minus ${formatWorkedDuration(breakMinutesPerShift)} break = ${formatWorkedDuration(workedMinutes)}.`,
             holidayLabel: getHolidayLabel(entry.holidayType),
             holidayAdjustmentLabel: getHolidayAdjustmentLabel(
                 entry.holidayType,
             ),
             multiplierLabel: `${multiplier.toFixed(2)}x`,
-            baseRateLabel: hasBaseRate ? formatRateAmount(entry.baseRate) : '--',
+            baseRateLabel: hasBaseRate
+                ? formatRateAmount(entry.baseRate)
+                : '--',
             rateLabel: hasRate ? formatRateAmount(entry.rate) : '--',
-            rateFormulaLabel:
-                hasBaseRate && hasRate
-                    ? `${formatRateAmount(entry.baseRate)} x ${multiplier.toFixed(2)} = ${formatRateAmount(entry.rate)}`
-                    : 'Enter a valid rate to see the day computation.',
+            rateFormulaLabel,
             isAbsent: false,
         };
     };
@@ -364,40 +499,6 @@ export function useCalculateAttendance(
                 };
             }
 
-            if (field === 'holidayType') {
-                const holidayType = value as HolidayType;
-
-                return {
-                    ...currentEntries,
-                    [entryKey]: {
-                        ...currentEntry,
-                        holidayType,
-                        isAbsent: false,
-                        rate: getAdjustedDailyRate(
-                            currentEntry.baseRate,
-                            holidayType,
-                        ),
-                    },
-                };
-            }
-
-            if (field === 'rate') {
-                const rate = value as string;
-
-                return {
-                    ...currentEntries,
-                    [entryKey]: {
-                        ...currentEntry,
-                        isAbsent: false,
-                        rate,
-                        baseRate: getBaseDailyRate(
-                            rate,
-                            currentEntry.holidayType,
-                        ),
-                    },
-                };
-            }
-
             return {
                 ...currentEntries,
                 [entryKey]: {
@@ -411,6 +512,7 @@ export function useCalculateAttendance(
 
     const resetReviewState = () => {
         setIsSummaryDialogOpen(false);
+        setSelectedComputationDayKey(null);
     };
 
     const handleEmployeeChange = (value: string) => {
@@ -427,14 +529,12 @@ export function useCalculateAttendance(
         setSelectedMonth(value);
         setCurrentPage(1);
         resetReviewState();
-        setSelectedComputationDayKey(null);
     };
 
     const handleYearChange = (value: string) => {
         setSelectedYear(value);
         setCurrentPage(1);
         resetReviewState();
-        setSelectedComputationDayKey(null);
     };
 
     const goToPage = (pageNumber: number) => {

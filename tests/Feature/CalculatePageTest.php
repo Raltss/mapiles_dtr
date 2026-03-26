@@ -62,6 +62,7 @@ test('authenticated users can view employees, daily rates, and scheduled work da
             ->where('employees.0.schedule.0.day', 1)
             ->where('employees.0.schedule.0.startTime', '08:00')
             ->where('employees.0.schedule.0.endTime', '17:00')
+            ->where('employees.0.schedule.0.graceMinutes', 5)
             ->where('employees.1.fullName', 'Ben Reyes')
             ->where('employees.1.dailyRate', '800.00')
             ->where('employees.1.workDays', [1, 2, 3, 4, 5, 6])
@@ -69,6 +70,7 @@ test('authenticated users can view employees, daily rates, and scheduled work da
             ->where('employees.1.schedule.5.day', 6)
             ->where('employees.1.schedule.5.startTime', '09:00')
             ->where('employees.1.schedule.5.endTime', '17:00')
+            ->where('employees.1.schedule.5.graceMinutes', 5)
             ->where('initialSelection.month', now()->month)
             ->where('initialSelection.year', now()->year)
             ->where('isEditingFromSummary', false)
@@ -243,6 +245,68 @@ test('authenticated users can confirm and store dtrs', function () {
         ->and((string) $entries[1]->rate)->toBe('1600.00');
 });
 
+test('late arrivals and half days are computed from the employee schedule', function () {
+    $user = User::factory()->create();
+    $employee = Employee::factory()->create([
+        'first_name' => 'Ben',
+        'last_name' => 'Reyes',
+        'daily_rate' => '800.00',
+        'grace_period_minutes' => 5,
+        'weekly_schedule' => [
+            ['day' => 1, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+            ['day' => 2, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+        ],
+        'work_days' => [1, 2],
+    ]);
+
+    $payload = [
+        'employee_id' => $employee->id,
+        'month' => 3,
+        'year' => 2026,
+        'entries' => [
+            [
+                'date' => '2026-03-02',
+                'time_in' => '09:06',
+                'time_out' => '18:00',
+                'holiday_type' => 'none',
+                'base_rate' => '800.00',
+                'rate' => '9999.00',
+                'is_absent' => false,
+            ],
+            [
+                'date' => '2026-03-03',
+                'time_in' => '12:00',
+                'time_out' => '18:00',
+                'holiday_type' => 'none',
+                'base_rate' => '800.00',
+                'rate' => '9999.00',
+                'is_absent' => false,
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->post(route('calculate.store'), $payload)
+        ->assertRedirect(route('calculate.index', [
+            'employee' => $employee->id,
+            'month' => 3,
+            'year' => 2026,
+        ]));
+
+    $dtr = Dtr::query()->with('entries')->sole();
+    $entries = $dtr->entries->sortBy('work_date')->values();
+
+    expect($dtr->total_days)->toBe(2)
+        ->and($dtr->total_worked_minutes)->toBe(774)
+        ->and((string) $dtr->total_amount)->toBe('1199.00')
+        ->and((string) $entries[0]->base_rate)->toBe('800.00')
+        ->and((string) $entries[0]->rate)->toBe('799.00')
+        ->and($entries[0]->worked_minutes)->toBe(474)
+        ->and((string) $entries[1]->base_rate)->toBe('800.00')
+        ->and((string) $entries[1]->rate)->toBe('400.00')
+        ->and($entries[1]->worked_minutes)->toBe(300);
+});
+
 test('authenticated users can confirm and store absent days', function () {
     $user = User::factory()->create();
     $employee = Employee::factory()->create([
@@ -291,7 +355,14 @@ test('authenticated users can confirm and store absent days', function () {
 
 test('confirming the same employee and period updates the stored dtr', function () {
     $user = User::factory()->create();
-    $employee = Employee::factory()->create();
+    $employee = Employee::factory()->create([
+        'daily_rate' => '800.00',
+        'weekly_schedule' => [
+            ['day' => 1, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+            ['day' => 2, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+        ],
+        'work_days' => [1, 2],
+    ]);
 
     $firstPayload = [
         'employee_id' => $employee->id,
