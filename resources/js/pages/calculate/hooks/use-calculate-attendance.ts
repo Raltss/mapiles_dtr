@@ -323,16 +323,17 @@ export function useCalculateAttendance(
                 0,
             ),
         ),
-        entries: summaryEntryData.map(
-            ({
-                workedMinutes,
-                rateAmount,
-                rate,
-                baseRate,
-                holidayType,
-                ...entry
-            }) => entry,
-        ),
+        entries: summaryEntryData.map((entry) => ({
+            key: entry.key,
+            label: entry.label,
+            weekday: entry.weekday,
+            timeIn: entry.timeIn,
+            timeOut: entry.timeOut,
+            holidayLabel: entry.holidayLabel,
+            workedDuration: entry.workedDuration,
+            rateLabel: entry.rateLabel,
+            isAbsent: entry.isAbsent,
+        })),
     };
 
     const buildRateComputationDetails = (
@@ -587,15 +588,13 @@ export function useCalculateAttendance(
                 year: Number(selectedYear),
                 ...(isEditingFromSummary ? { source: 'summary' } : {}),
                 entries: summaryEntryData.map((entry) => ({
-                    key: entry.key,
-                    label: entry.label,
-                    weekday: entry.weekday,
-                    timeIn: entry.timeIn,
-                    timeOut: entry.timeOut,
-                    holidayLabel: entry.holidayLabel,
-                    workedDuration: entry.workedDuration,
-                    rateLabel: entry.rateLabel,
-                    isAbsent: entry.isAbsent,
+                    date: entry.key,
+                    time_in: entry.timeIn || null,
+                    time_out: entry.timeOut || null,
+                    holiday_type: entry.holidayType,
+                    base_rate: entry.baseRate,
+                    rate: entry.rate,
+                    is_absent: entry.isAbsent,
                 })),
             },
             {
