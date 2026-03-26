@@ -1,4 +1,4 @@
-﻿import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -49,7 +49,7 @@ export default function DtrSummaryDialog({
                     <div className="rounded-lg border p-4">
                         <p className="text-sm text-muted-foreground">Period</p>
                         <p className="mt-1 font-medium text-foreground">
-                            {summary.monthLabel} {summary.year}
+                            {summary.periodLabel}
                         </p>
                     </div>
                     <div className="rounded-lg border p-4">

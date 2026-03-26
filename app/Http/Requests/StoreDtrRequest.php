@@ -19,6 +19,10 @@ class StoreDtrRequest extends FormRequest
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
             'month' => ['required', 'integer', 'between:1,12'],
             'year' => ['required', 'integer', 'between:2000,2100'],
+            'calendar_range' => [
+                'nullable',
+                'in:wholeMonth,firstTwoWeeks,lastTwoWeeks',
+            ],
             'entries' => ['required', 'array', 'min:1'],
             'entries.*.date' => ['required', 'date'],
             'entries.*.time_in' => ['nullable', 'date_format:H:i'],
@@ -41,7 +45,18 @@ class StoreDtrRequest extends FormRequest
             function (Validator $validator): void {
                 $month = (int) $this->input('month');
                 $year = (int) $this->input('year');
+                $calendarRange = $this->resolvedCalendarRange();
                 $seenDates = [];
+
+                if ($month < 1 || $month > 12 || $year < 2000 || $year > 2100) {
+                    return;
+                }
+
+                [$rangeStartDate, $rangeEndDate] = $this->calendarRangeBounds(
+                    $month,
+                    $year,
+                    $calendarRange,
+                );
 
                 foreach ($this->input('entries', []) as $index => $entry) {
                     $date = $entry['date'] ?? null;
@@ -93,8 +108,48 @@ class StoreDtrRequest extends FormRequest
                             'Each work date must belong to the selected month and year.',
                         );
                     }
+
+                    if ($workDate->lt($rangeStartDate) || $workDate->gt($rangeEndDate)) {
+                        $validator->errors()->add(
+                            "entries.{$index}.date",
+                            'Each work date must belong to the selected calendar range.',
+                        );
+                    }
                 }
             },
         ];
+    }
+
+    protected function resolvedCalendarRange(): string
+    {
+        return match ((string) $this->input('calendar_range', 'wholeMonth')) {
+            'firstTwoWeeks' => 'firstTwoWeeks',
+            'lastTwoWeeks' => 'lastTwoWeeks',
+            default => 'wholeMonth',
+        };
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    protected function calendarRangeBounds(
+        int $month,
+        int $year,
+        string $calendarRange,
+    ): array {
+        $monthStart = Carbon::create($year, $month, 1)->startOfDay();
+        $monthEnd = $monthStart->copy()->endOfMonth()->startOfDay();
+
+        return match ($calendarRange) {
+            'firstTwoWeeks' => [
+                $monthStart,
+                $monthStart->copy()->day(min(15, $monthEnd->day))->startOfDay(),
+            ],
+            'lastTwoWeeks' => [
+                $monthStart->copy()->day(min(16, $monthEnd->day))->startOfDay(),
+                $monthEnd,
+            ],
+            default => [$monthStart, $monthEnd],
+        };
     }
 }

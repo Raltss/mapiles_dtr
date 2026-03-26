@@ -31,7 +31,7 @@ export default function CalculatePageContent({
             <div className="flex flex-1 flex-col gap-6 p-5 md:p-6">
                 <Heading
                     title="Calculate"
-                    description="Choose an employee, set the month and year, then encode daily time in, time out, holiday entries, or absences. The daily rate is computed automatically from the employee schedule, grace period, late minutes, and half-day rule."
+                    description="Choose an employee, set the month, year, and calendar range, then encode daily time in, time out, holiday entries, or absences. The daily rate is computed automatically from the employee schedule, grace period, late minutes, and half-day rule."
                 />
 
                 {attendance.isEditingFromSummary ? (
@@ -62,9 +62,12 @@ export default function CalculatePageContent({
                 {employees.length > 0 && attendance.selectedEmployee ? (
                     <>
                         <DailyAttendanceCard
+                            selectedCalendarRange={
+                                attendance.selectedCalendarRange
+                            }
                             selectedMonth={attendance.selectedMonth}
                             selectedYear={attendance.selectedYear}
-                            selectedMonthLabel={attendance.selectedMonthLabel}
+                            selectedPeriodLabel={attendance.selectedPeriodLabel}
                             yearOptions={attendance.yearOptions}
                             monthDays={attendance.monthDays}
                             paginatedDays={attendance.paginatedDays}
@@ -73,6 +76,9 @@ export default function CalculatePageContent({
                             totalPages={attendance.totalPages}
                             pageNumbers={attendance.pageNumbers}
                             canSubmitDtr={attendance.canSubmitDtr}
+                            onCalendarRangeChange={
+                                attendance.handleCalendarRangeChange
+                            }
                             onMonthChange={attendance.handleMonthChange}
                             onYearChange={attendance.handleYearChange}
                             onPageChange={attendance.goToPage}
