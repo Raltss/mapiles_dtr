@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,6 +30,9 @@ class CalculateController extends Controller
         $selectedEmployeeId = $request->integer('employee') ?: null;
         $selectedMonth = $request->integer('month') ?: (int) now()->month;
         $selectedYear = $request->integer('year') ?: (int) now()->year;
+        $selectedCalendarRange = $this->resolvedCalendarRange(
+            (string) $request->query('calendar_range', 'wholeMonth'),
+        );
         $isEditingFromSummary = $request->query('source') === 'summary';
 
         $employees = Employee::query()
@@ -64,6 +68,7 @@ class CalculateController extends Controller
                 'employeeId' => $selectedEmployeeId,
                 'month' => $selectedMonth,
                 'year' => $selectedYear,
+                'calendarRange' => $selectedCalendarRange,
             ],
             'isEditingFromSummary' => $isEditingFromSummary,
             'activeDtr' => $selectedEmployeeId !== null
@@ -79,11 +84,20 @@ class CalculateController extends Controller
         $employee = Employee::query()->findOrFail($validated['employee_id']);
         $month = (int) $validated['month'];
         $year = (int) $validated['year'];
+        $calendarRange = $this->resolvedCalendarRange(
+            (string) ($validated['calendar_range'] ?? 'wholeMonth'),
+        );
 
-        DB::transaction(function () use ($employee, $month, $request, $validated, $year): void {
+        DB::transaction(function () use ($calendarRange, $employee, $month, $request, $validated, $year): void {
             Employee::query()->whereKey($employee->id)->lockForUpdate()->firstOrFail();
 
             $scheduleByDay = collect($this->storedSchedule($employee))->keyBy('day');
+            [$periodStartDate, $periodEndDate] = $this->periodBounds($month, $year);
+            [$rangeStartDate, $rangeEndDate] = $this->calendarRangeBounds(
+                $month,
+                $year,
+                $calendarRange,
+            );
 
             $preparedEntries = collect($validated['entries'])
                 ->sortBy('date')
@@ -140,49 +154,88 @@ class CalculateController extends Controller
                     ];
                 });
 
-            $regularAmount = (float) $preparedEntries->sum(
+            $dtr = $this->dtrQueryForPeriod($employee->id, $month, $year)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $dtr) {
+                $dtr = Dtr::query()->create([
+                    'employee_id' => $employee->id,
+                    'confirmed_by' => $request->user()?->id,
+                    'total_days' => 0,
+                    'total_worked_minutes' => 0,
+                    'total_overtime_minutes' => 0,
+                    'total_overtime_amount' => $this->formatRate(0),
+                    'total_amount' => $this->formatRate(0),
+                ]);
+            }
+
+            $preservedEntryTotals = $dtr->entries()
+                ->whereBetween('work_date', [
+                    $periodStartDate->toDateString(),
+                    $periodEndDate->toDateString(),
+                ])
+                ->where(function (Builder $query) use ($rangeEndDate, $rangeStartDate): void {
+                    $query->whereDate('work_date', '<', $rangeStartDate->toDateString())
+                        ->orWhereDate('work_date', '>', $rangeEndDate->toDateString());
+                })
+                ->orderBy('work_date')
+                ->get()
+                ->map(
+                    fn (DtrEntry $entry): array => $this->entryTotalsPayload(
+                        $entry,
+                        $scheduleByDay,
+                    ),
+                )
+                ->values();
+
+            $dtr->entries()
+                ->whereBetween('work_date', [
+                    $rangeStartDate->toDateString(),
+                    $rangeEndDate->toDateString(),
+                ])
+                ->delete();
+
+            $dtr->entries()->createMany(
+                $preparedEntries
+                    ->map(
+                        fn (array $entry): array => collect($entry)
+                            ->except('overtime_minutes')
+                            ->all(),
+                    )
+                    ->all(),
+            );
+
+            $allEntryTotals = $preservedEntryTotals
+                ->concat(
+                    $preparedEntries->map(fn (array $entry): array => [
+                        'worked_minutes' => (int) $entry['worked_minutes'],
+                        'rate' => $entry['rate'],
+                        'overtime_minutes' => (int) $entry['overtime_minutes'],
+                    ]),
+                )
+                ->values();
+
+            $regularAmount = (float) $allEntryTotals->sum(
                 fn (array $entry): float => (float) ($entry['rate'] ?? 0),
             );
-            $totalOvertimeMinutes = (int) $preparedEntries->sum('overtime_minutes');
+            $totalOvertimeMinutes = (int) $allEntryTotals->sum('overtime_minutes');
             $totalOvertimeAmount = $this->computedOvertimeAmount(
                 $employee,
                 $totalOvertimeMinutes,
             );
-            $attributes = [
+
+            $dtr->fill([
                 'confirmed_by' => $request->user()?->id,
-                'total_days' => $preparedEntries->count(),
-                'total_worked_minutes' => $preparedEntries->sum('worked_minutes'),
+                'total_days' => $allEntryTotals->count(),
+                'total_worked_minutes' => (int) $allEntryTotals->sum('worked_minutes'),
                 'total_overtime_minutes' => $totalOvertimeMinutes,
                 'total_overtime_amount' => $this->formatRate($totalOvertimeAmount),
                 'total_amount' => $this->formatRate(
                     $regularAmount + $totalOvertimeAmount,
                 ),
-            ];
-
-            $dtr = $this->dtrQueryForPeriod($employee->id, $month, $year)
-                ->lockForUpdate()
-                ->first();
-
-            if ($dtr) {
-                $dtr->fill($attributes);
-                $dtr->save();
-            } else {
-                $dtr = Dtr::query()->create([
-                    'employee_id' => $employee->id,
-                    ...$attributes,
-                ]);
-            }
-
-            $dtr->entries()->delete();
-            $dtr->entries()->createMany(
-                $preparedEntries
-                    ->map(function (array $entry): array {
-                        unset($entry['overtime_minutes']);
-
-                        return $entry;
-                    })
-                    ->all(),
-            );
+            ]);
+            $dtr->save();
         });
 
         $redirectQuery = [
@@ -191,12 +244,67 @@ class CalculateController extends Controller
             'year' => $year,
         ];
 
+        if ($calendarRange !== 'wholeMonth') {
+            $redirectQuery['calendar_range'] = $calendarRange;
+        }
+
         if ($request->input('source') === 'summary') {
             $redirectQuery['source'] = 'summary';
         }
 
         return to_route('calculate.index', $redirectQuery)
             ->with('success', 'DTR confirmed and saved successfully.');
+    }
+
+    protected function resolvedCalendarRange(string $value): string
+    {
+        return match ($value) {
+            'firstTwoWeeks' => 'firstTwoWeeks',
+            'lastTwoWeeks' => 'lastTwoWeeks',
+            default => 'wholeMonth',
+        };
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    protected function calendarRangeBounds(int $month, int $year, string $calendarRange): array
+    {
+        $monthStart = Carbon::create($year, $month, 1)->startOfDay();
+        $monthEnd = $monthStart->copy()->endOfMonth()->startOfDay();
+
+        return match ($calendarRange) {
+            'firstTwoWeeks' => [
+                $monthStart,
+                $monthStart->copy()->day(min(15, $monthEnd->day))->startOfDay(),
+            ],
+            'lastTwoWeeks' => [
+                $monthStart->copy()->day(min(16, $monthEnd->day))->startOfDay(),
+                $monthEnd,
+            ],
+            default => [$monthStart, $monthEnd],
+        };
+    }
+
+    protected function entryTotalsPayload(DtrEntry $entry, Collection $scheduleByDay): array
+    {
+        $workDate = $entry->work_date instanceof Carbon
+            ? $entry->work_date->copy()
+            : Carbon::parse($entry->work_date);
+        $scheduleDay = $scheduleByDay->get((int) $workDate->dayOfWeek);
+        $workedMinutes = (int) $entry->worked_minutes;
+        $scheduledWorkedMinutes = $this->resolveWorkedMinutes(
+            $scheduleDay['startTime'] ?? null,
+            $scheduleDay['endTime'] ?? null,
+        );
+
+        return [
+            'worked_minutes' => $workedMinutes,
+            'rate' => $entry->rate !== null ? (string) $entry->rate : null,
+            'overtime_minutes' => $this->isAbsentEntry($entry)
+                ? 0
+                : max(0, $workedMinutes - $scheduledWorkedMinutes),
+        ];
     }
 
     protected function activeDtr(int $employeeId, int $month, int $year): ?array

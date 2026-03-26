@@ -1,4 +1,4 @@
-﻿import { router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { store as calculateStore } from '@/routes/calculate';
 import { index as summaryIndex } from '@/routes/summary';
@@ -8,9 +8,11 @@ import {
     buildOvertimeSummary,
     createAttendanceEntry,
     daysPerPage,
+    filterMonthDaysByAttendanceCalendarRange,
     formatRateAmount,
     formatWorkedDuration,
     getAdjustedDailyRate,
+    getAttendanceCalendarPeriodLabel,
     getAttendanceEntryKey,
     getBaseDailyRate,
     getComputedDailyRate,
@@ -23,6 +25,7 @@ import {
     isHalfDayTimeIn,
     monthOptions,
     type ActiveDtr,
+    type AttendanceCalendarRange,
     type AttendanceEntry,
     type AttendanceField,
     type EmployeeOption,
@@ -50,6 +53,7 @@ export type DtrSummary = {
     employeeName: string;
     monthLabel: string;
     year: string;
+    periodLabel: string;
     totalDays: number;
     totalWorkedDuration: string;
     regularAmountLabel: string;
@@ -158,6 +162,10 @@ export function useCalculateAttendance(
         useState(initialEmployeeId);
     const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
     const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+    const [selectedCalendarRange, setSelectedCalendarRange] =
+        useState<AttendanceCalendarRange>(
+            initialSelection?.calendarRange ?? 'wholeMonth',
+        );
     const [currentPage, setCurrentPage] = useState(1);
     const [attendanceEntries, setAttendanceEntries] = useState<
         Record<string, AttendanceEntry>
@@ -173,13 +181,19 @@ export function useCalculateAttendance(
             (employee) => employee.id.toString() === selectedEmployeeId,
         ) ?? null;
 
-    const monthDays = selectedEmployee
+    const allMonthDays = selectedEmployee
         ? buildMonthDays(
               Number(selectedYear),
               Number(selectedMonth),
               selectedEmployee.schedule,
           )
         : [];
+    const monthDays = filterMonthDaysByAttendanceCalendarRange(
+        allMonthDays,
+        Number(selectedYear),
+        Number(selectedMonth),
+        selectedCalendarRange,
+    );
     const totalPages = Math.max(1, Math.ceil(monthDays.length / daysPerPage));
     const visiblePage = Math.min(currentPage, totalPages);
     const startIndex = (visiblePage - 1) * daysPerPage;
@@ -191,9 +205,14 @@ export function useCalculateAttendance(
     const selectedMonthLabel =
         monthOptions.find((month) => month.value.toString() === selectedMonth)
             ?.label ?? 'Selected month';
+    const selectedPeriodLabel = getAttendanceCalendarPeriodLabel(
+        Number(selectedYear),
+        Number(selectedMonth),
+        selectedCalendarRange,
+    );
 
     const getScheduledDay = (dateKey: string) =>
-        monthDays.find((day) => day.key === dateKey) ?? null;
+        allMonthDays.find((day) => day.key === dateKey) ?? null;
 
     const getDefaultAttendanceEntry = (dateKey: string) => {
         const scheduledDay = getScheduledDay(dateKey);
@@ -339,6 +358,7 @@ export function useCalculateAttendance(
         employeeName: selectedEmployee?.fullName ?? '',
         monthLabel: selectedMonthLabel,
         year: selectedYear,
+        periodLabel: selectedPeriodLabel,
         totalDays: summaryEntryData.length,
         totalWorkedDuration: formatWorkedDuration(totalWorkedMinutes),
         regularAmountLabel: formatRateAmount(regularAmountTotal),
@@ -560,6 +580,12 @@ export function useCalculateAttendance(
         resetReviewState();
     };
 
+    const handleCalendarRangeChange = (value: AttendanceCalendarRange) => {
+        setSelectedCalendarRange(value);
+        setCurrentPage(1);
+        resetReviewState();
+    };
+
     const goToPage = (pageNumber: number) => {
         setCurrentPage(pageNumber);
     };
@@ -609,6 +635,7 @@ export function useCalculateAttendance(
                 employee_id: selectedEmployee.id,
                 month: Number(selectedMonth),
                 year: Number(selectedYear),
+                calendar_range: selectedCalendarRange,
                 ...(isEditingFromSummary ? { source: 'summary' } : {}),
                 entries: summaryEntryData.map((entry) => ({
                     date: entry.key,
@@ -639,6 +666,7 @@ export function useCalculateAttendance(
         goToNextPage,
         goToPage,
         goToPreviousPage,
+        handleCalendarRangeChange,
         handleEmployeeChange,
         handleMonthChange,
         handleRateComputationDialogChange,
@@ -653,10 +681,12 @@ export function useCalculateAttendance(
         openSummaryDialog,
         pageNumbers,
         paginatedDays,
+        selectedCalendarRange,
         selectedEmployee,
         selectedEmployeeId,
         selectedMonth,
         selectedMonthLabel,
+        selectedPeriodLabel,
         selectedRateComputation,
         selectedYear,
         startIndex,

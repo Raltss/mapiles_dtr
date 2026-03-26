@@ -15,7 +15,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
+    attendanceCalendarRangeOptions,
     monthOptions,
+    type AttendanceCalendarRange,
     type AttendanceEntry,
     type AttendanceField,
     type MonthDay,
@@ -24,9 +26,10 @@ import DailyAttendanceRow from './daily-attendance-row';
 import DailyAttendanceTableRow from './daily-attendance-table-row';
 
 type DailyAttendanceCardProps = {
+    selectedCalendarRange: AttendanceCalendarRange;
     selectedMonth: string;
     selectedYear: string;
-    selectedMonthLabel: string;
+    selectedPeriodLabel: string;
     yearOptions: number[];
     monthDays: MonthDay[];
     paginatedDays: MonthDay[];
@@ -35,6 +38,7 @@ type DailyAttendanceCardProps = {
     totalPages: number;
     pageNumbers: number[];
     canSubmitDtr: boolean;
+    onCalendarRangeChange: (value: AttendanceCalendarRange) => void;
     onMonthChange: (value: string) => void;
     onYearChange: (value: string) => void;
     onPageChange: (pageNumber: number) => void;
@@ -51,9 +55,10 @@ type DailyAttendanceCardProps = {
 };
 
 export default function DailyAttendanceCard({
+    selectedCalendarRange,
     selectedMonth,
     selectedYear,
-    selectedMonthLabel,
+    selectedPeriodLabel,
     yearOptions,
     monthDays,
     paginatedDays,
@@ -62,6 +67,7 @@ export default function DailyAttendanceCard({
     totalPages,
     pageNumbers,
     canSubmitDtr,
+    onCalendarRangeChange,
     onMonthChange,
     onYearChange,
     onPageChange,
@@ -77,13 +83,44 @@ export default function DailyAttendanceCard({
             <CardHeader>
                 <CardTitle>Daily attendance input</CardTitle>
                 <CardDescription>
-                    Times are prefilled from the employee's schedule and the
-                    rate is computed automatically. Late minutes after the
-                    grace period deduct PHP 1.00 each, while arrivals that are
-                    3 hours or more after the scheduled start become half-day
-                    rates for {selectedMonthLabel} {selectedYear}.
+                    Choose the calendar range, then review the prefilled schedule
+                    and computed rates for {selectedPeriodLabel}. Late minutes
+                    after the grace period deduct PHP 1.00 each, while arrivals
+                    that are 3 hours or more after the scheduled start become
+                    half-day rates.
                 </CardDescription>
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                        <Label htmlFor="attendance-calendar-range">
+                            Calendar range
+                        </Label>
+                        <Select
+                            value={selectedCalendarRange}
+                            onValueChange={(value) =>
+                                onCalendarRangeChange(
+                                    value as AttendanceCalendarRange,
+                                )
+                            }
+                        >
+                            <SelectTrigger
+                                id="attendance-calendar-range"
+                                className="w-full"
+                            >
+                                <SelectValue placeholder="Select a calendar range" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {attendanceCalendarRangeOptions.map((option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     <div className="space-y-2">
                         <Label htmlFor="attendance-month">Month</Label>
                         <Select
@@ -138,8 +175,7 @@ export default function DailyAttendanceCard({
             <CardContent className="space-y-4">
                 {monthDays.length === 0 ? (
                     <div className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                        This employee has no scheduled workdays for{' '}
-                        {selectedMonthLabel} {selectedYear}.
+                        This employee has no scheduled workdays for {selectedPeriodLabel}.
                     </div>
                 ) : (
                     <>
@@ -150,7 +186,7 @@ export default function DailyAttendanceCard({
                                     startIndex + paginatedDays.length,
                                     monthDays.length,
                                 )}{' '}
-                                of {monthDays.length}
+                                of {monthDays.length} in {selectedPeriodLabel}
                                 {paginatedDays.length > 0
                                     ? ` (${paginatedDays[0].label} to ${paginatedDays[paginatedDays.length - 1].label})`
                                     : ''}
@@ -271,8 +307,8 @@ export default function DailyAttendanceCard({
                         <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/10 px-4 py-4 md:flex-row md:items-center md:justify-between">
                             <p className="text-sm text-muted-foreground">
                                 {canSubmitDtr
-                                    ? 'You are on the last page. Review the entries, then submit to open the DTR summary.'
-                                    : 'Reach the last page to review and submit the full DTR summary.'}
+                                    ? 'You are on the last page. Review the entries, then submit this selected DTR summary.'
+                                    : 'Reach the last page to review and submit the selected DTR summary.'}
                             </p>
 
                             {canSubmitDtr ? (

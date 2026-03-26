@@ -1,4 +1,4 @@
-﻿import { index as calculateIndex } from '@/routes/calculate';
+import { index as calculateIndex } from '@/routes/calculate';
 import type { BreadcrumbItem } from '@/types';
 
 export type EmployeeScheduleDay = {
@@ -16,10 +16,16 @@ export type EmployeeOption = {
     schedule: EmployeeScheduleDay[];
 };
 
+export type AttendanceCalendarRange =
+    | 'wholeMonth'
+    | 'firstTwoWeeks'
+    | 'lastTwoWeeks';
+
 export type InitialSelection = {
     employeeId?: number | null;
     month?: number | null;
     year?: number | null;
+    calendarRange?: AttendanceCalendarRange | null;
 };
 
 export type ActiveDtrEntry = {
@@ -120,6 +126,15 @@ export const monthOptions = [
     { label: 'December', value: 12 },
 ];
 
+export const attendanceCalendarRangeOptions: Array<{
+    label: string;
+    value: AttendanceCalendarRange;
+}> = [
+    { label: 'First two weeks', value: 'firstTwoWeeks' },
+    { label: 'Last two weeks', value: 'lastTwoWeeks' },
+    { label: 'Whole month', value: 'wholeMonth' },
+];
+
 export const holidayOptions: Array<{ label: string; value: HolidayType }> = [
     { label: 'None', value: 'none' },
     { label: 'Regular Holiday', value: 'regularHoliday' },
@@ -142,6 +157,10 @@ function getDateKey(year: number, month: number, day: number): string {
     return `${year}-${formatDatePart(month)}-${formatDatePart(day)}`;
 }
 
+function getDateKeyDay(dateKey: string): number {
+    return Number(dateKey.slice(-2));
+}
+
 function normalizeTimeValue(value: string): string {
     return value.length >= 5 ? value.slice(0, 5) : value;
 }
@@ -162,6 +181,83 @@ function getMinutesFromTime(value: string): number | null {
 
 export function getAttendanceEntryKey(employeeId: string, dateKey: string) {
     return `${employeeId || 'unassigned'}:${dateKey}`;
+}
+
+export function getAttendanceCalendarRangeLabel(
+    value: AttendanceCalendarRange,
+): string {
+    return (
+        attendanceCalendarRangeOptions.find((option) => option.value === value)
+            ?.label ?? 'Whole month'
+    );
+}
+
+export function getAttendanceCalendarRangeDayBounds(
+    year: number,
+    month: number,
+    value: AttendanceCalendarRange,
+): { startDay: number; endDay: number } {
+    const totalDays = new Date(year, month, 0).getDate();
+
+    switch (value) {
+        case 'firstTwoWeeks':
+            return {
+                startDay: 1,
+                endDay: Math.min(15, totalDays),
+            };
+        case 'lastTwoWeeks':
+            return {
+                startDay: Math.min(16, totalDays),
+                endDay: totalDays,
+            };
+        case 'wholeMonth':
+        default:
+            return {
+                startDay: 1,
+                endDay: totalDays,
+            };
+    }
+}
+
+export function getAttendanceCalendarPeriodLabel(
+    year: number,
+    month: number,
+    value: AttendanceCalendarRange,
+): string {
+    const monthLabel =
+        monthOptions.find((monthOption) => monthOption.value === month)?.label ??
+        'Selected month';
+
+    if (value === 'wholeMonth') {
+        return `${monthLabel} ${year}`;
+    }
+
+    const { startDay, endDay } = getAttendanceCalendarRangeDayBounds(
+        year,
+        month,
+        value,
+    );
+
+    return `${monthLabel} ${startDay}-${endDay}, ${year}`;
+}
+
+export function filterMonthDaysByAttendanceCalendarRange(
+    monthDays: MonthDay[],
+    year: number,
+    month: number,
+    value: AttendanceCalendarRange,
+): MonthDay[] {
+    const { startDay, endDay } = getAttendanceCalendarRangeDayBounds(
+        year,
+        month,
+        value,
+    );
+
+    return monthDays.filter((day) => {
+        const dayOfMonth = getDateKeyDay(day.key);
+
+        return dayOfMonth >= startDay && dayOfMonth <= endDay;
+    });
 }
 
 export function getShiftDurationMinutes(
