@@ -41,6 +41,10 @@ class SummaryController extends Controller
                     'year' => (int) $periodDate->year,
                     'totalDays' => $dtr->total_days,
                     'totalWorkedMinutes' => $dtr->total_worked_minutes,
+                    'regularAmount' => $this->resolvedRegularAmount($dtr),
+                    'dailyRateBasis' => $this->resolvedDailyRateBasis($dtr),
+                    'totalOvertimeMinutes' => (int) $dtr->total_overtime_minutes,
+                    'totalOvertimeAmount' => $dtr->total_overtime_amount !== null ? (string) $dtr->total_overtime_amount : '0.00',
                     'totalAmount' => $dtr->total_amount !== null ? (string) $dtr->total_amount : '0.00',
                     'confirmedAt' => ($dtr->updated_at ?? $dtr->created_at)?->toIso8601String(),
                     'entries' => $dtr->entries->map(function ($entry): array {
@@ -77,5 +81,34 @@ class SummaryController extends Controller
         return $periodSource instanceof Carbon
             ? $periodSource->copy()
             : Carbon::parse($periodSource);
+    }
+
+    protected function resolvedRegularAmount(Dtr $dtr): string
+    {
+        return $this->formatRate(
+            $dtr->entries->sum(
+                fn ($entry): float => (float) ($entry->rate ?? 0),
+            ),
+        );
+    }
+
+    protected function resolvedDailyRateBasis(Dtr $dtr): string
+    {
+        $baseRateEntry = $dtr->entries->first(
+            fn ($entry): bool => (float) ($entry->base_rate ?? 0) > 0,
+        );
+
+        if ($baseRateEntry?->base_rate !== null) {
+            return (string) $baseRateEntry->base_rate;
+        }
+
+        return $dtr->employee?->daily_rate !== null
+            ? (string) $dtr->employee->daily_rate
+            : '0.00';
+    }
+
+    protected function formatRate(float $value): string
+    {
+        return number_format(round($value, 2), 2, '.', '');
     }
 }

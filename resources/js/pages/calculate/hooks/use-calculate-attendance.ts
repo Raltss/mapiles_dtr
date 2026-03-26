@@ -1,10 +1,11 @@
-import { router } from '@inertiajs/react';
+﻿import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { store as calculateStore } from '@/routes/calculate';
 import { index as summaryIndex } from '@/routes/summary';
 import {
     breakMinutesPerShift,
     buildMonthDays,
+    buildOvertimeSummary,
     createAttendanceEntry,
     daysPerPage,
     formatRateAmount,
@@ -16,6 +17,7 @@ import {
     getHolidayLabel,
     getHolidayMultiplier,
     getLateMinutes,
+    getOvertimeMinutes,
     getShiftDurationMinutes,
     getWorkedMinutes,
     isHalfDayTimeIn,
@@ -27,6 +29,7 @@ import {
     type HolidayType,
     type InitialSelection,
     type MonthDay,
+    type OvertimeSummaryBreakdown,
 } from '../helpers/calculate-page';
 
 const absentRate = '0.00';
@@ -49,6 +52,8 @@ export type DtrSummary = {
     year: string;
     totalDays: number;
     totalWorkedDuration: string;
+    regularAmountLabel: string;
+    overtime: OvertimeSummaryBreakdown;
     totalAmountLabel: string;
     entries: DtrSummaryEntry[];
 };
@@ -295,6 +300,13 @@ export function useCalculateAttendance(
             holidayType: effectiveHolidayType,
             workedDuration: formatWorkedDuration(workedMinutes),
             workedMinutes,
+            overtimeMinutes: entry.isAbsent
+                ? 0
+                : getOvertimeMinutes(
+                      workedMinutes,
+                      day.defaultTimeIn,
+                      day.defaultTimeOut,
+                  ),
             rateAmount: Number.isFinite(parsedRate) ? parsedRate : 0,
             rate: effectiveRate,
             baseRate: effectiveBaseRate,
@@ -306,22 +318,33 @@ export function useCalculateAttendance(
         };
     });
 
+    const totalWorkedMinutes = summaryEntryData.reduce(
+        (total, entry) => total + entry.workedMinutes,
+        0,
+    );
+    const regularAmountTotal = summaryEntryData.reduce(
+        (total, entry) => total + entry.rateAmount,
+        0,
+    );
+    const totalOvertimeMinutes = summaryEntryData.reduce(
+        (total, entry) => total + entry.overtimeMinutes,
+        0,
+    );
+    const overtimeSummary = buildOvertimeSummary(
+        totalOvertimeMinutes,
+        selectedEmployee?.dailyRate ?? '',
+    );
+
     const dtrSummary: DtrSummary = {
         employeeName: selectedEmployee?.fullName ?? '',
         monthLabel: selectedMonthLabel,
         year: selectedYear,
         totalDays: summaryEntryData.length,
-        totalWorkedDuration: formatWorkedDuration(
-            summaryEntryData.reduce(
-                (total, entry) => total + entry.workedMinutes,
-                0,
-            ),
-        ),
+        totalWorkedDuration: formatWorkedDuration(totalWorkedMinutes),
+        regularAmountLabel: formatRateAmount(regularAmountTotal),
+        overtime: overtimeSummary,
         totalAmountLabel: formatRateAmount(
-            summaryEntryData.reduce(
-                (total, entry) => total + entry.rateAmount,
-                0,
-            ),
+            regularAmountTotal + overtimeSummary.totalAmount,
         ),
         entries: summaryEntryData.map((entry) => ({
             key: entry.key,

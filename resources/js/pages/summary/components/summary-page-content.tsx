@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+﻿import { Head } from '@inertiajs/react';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import {
@@ -86,7 +86,7 @@ export default function SummaryPageContent({
                                                         Hours
                                                     </th>
                                                     <th className="px-3 py-3 font-medium">
-                                                        Rate
+                                                        Total pay
                                                     </th>
                                                     <th className="px-3 py-3 font-medium">
                                                         Actions
@@ -161,7 +161,8 @@ export default function SummaryPageContent({
                                                                             )
                                                                         }
                                                                     >
-                                                                        Export CSV
+                                                                        Export
+                                                                        CSV
                                                                     </Button>
                                                                     <Button
                                                                         type="button"
@@ -251,7 +252,7 @@ export default function SummaryPageContent({
                                                     </div>
                                                     <div>
                                                         <p className="text-muted-foreground">
-                                                            Rate
+                                                            Total pay
                                                         </p>
                                                         <p className="font-medium text-foreground">
                                                             {formatRateAmount(
@@ -291,7 +292,9 @@ export default function SummaryPageContent({
                                                         size="sm"
                                                         disabled={isDeleting}
                                                         onClick={() =>
-                                                            history.reopenDtr(dtr)
+                                                            history.reopenDtr(
+                                                                dtr,
+                                                            )
                                                         }
                                                     >
                                                         Edit
@@ -302,7 +305,9 @@ export default function SummaryPageContent({
                                                         variant="destructive"
                                                         disabled={isDeleting}
                                                         onClick={() =>
-                                                            history.deleteDtr(dtr)
+                                                            history.deleteDtr(
+                                                                dtr,
+                                                            )
                                                         }
                                                     >
                                                         {isDeleting

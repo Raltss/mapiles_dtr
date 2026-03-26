@@ -24,7 +24,9 @@ test('authenticated users can view confirmed dtrs in summary', function () {
         'confirmed_by' => $user->id,
         'total_days' => 2,
         'total_worked_minutes' => 900,
-        'total_amount' => '2400.00',
+        'total_overtime_minutes' => 120,
+        'total_overtime_amount' => '2000.00',
+        'total_amount' => '4400.00',
     ]);
 
     $dtr->entries()->createMany([
@@ -61,7 +63,11 @@ test('authenticated users can view confirmed dtrs in summary', function () {
             ->where('dtrs.0.year', 2026)
             ->where('dtrs.0.totalDays', 2)
             ->where('dtrs.0.totalWorkedMinutes', 900)
-            ->where('dtrs.0.totalAmount', '2400.00')
+            ->where('dtrs.0.regularAmount', '2400.00')
+            ->where('dtrs.0.dailyRateBasis', '800.00')
+            ->where('dtrs.0.totalOvertimeMinutes', 120)
+            ->where('dtrs.0.totalOvertimeAmount', '2000.00')
+            ->where('dtrs.0.totalAmount', '4400.00')
             ->has('dtrs.0.entries', 2)
             ->where('dtrs.0.entries.0.date', '2026-03-02')
             ->where('dtrs.0.entries.0.timeIn', '09:00')

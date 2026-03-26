@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+﻿import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -8,6 +8,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import {
+    buildOvertimeSummary,
     formatRateAmount,
     formatWorkedDuration,
     getHolidayLabel,
@@ -40,6 +41,11 @@ export default function DtrDetailsDialog({
     }
 
     const isDeleting = deletingId === dtr.id;
+    const overtime = buildOvertimeSummary(
+        dtr.totalOvertimeMinutes,
+        dtr.dailyRateBasis,
+    );
+    const hasOvertime = overtime.totalMinutes > 0;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -47,12 +53,12 @@ export default function DtrDetailsDialog({
                 <DialogHeader>
                     <DialogTitle>DTR Details</DialogTitle>
                     <DialogDescription>
-                        Review, print, export, reopen, or delete this
-                        confirmed DTR.
+                        Review, print, export, reopen, or delete this confirmed
+                        DTR.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <div className="rounded-lg border p-4">
                         <p className="text-sm text-muted-foreground">
                             Employee
@@ -85,12 +91,80 @@ export default function DtrDetailsDialog({
                     </div>
                     <div className="rounded-lg border p-4">
                         <p className="text-sm text-muted-foreground">
-                            Total rate
+                            Regular pay
+                        </p>
+                        <p className="mt-1 font-medium text-foreground">
+                            {formatRateAmount(dtr.regularAmount)}
+                        </p>
+                    </div>
+
+                    <div className="rounded-lg border p-4">
+                        <p className="text-sm text-muted-foreground">
+                            Total pay
                         </p>
                         <p className="mt-1 font-medium text-foreground">
                             {formatRateAmount(dtr.totalAmount)}
                         </p>
                     </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/10 p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                            <p className="font-medium text-foreground">
+                                Overtime computation
+                            </p>
+                        </div>
+                    </div>
+
+                    {hasOvertime ? (
+                        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Overtime hours
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {overtime.totalHoursLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Daily rate basis
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {overtime.rateBasisLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Base overtime
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {overtime.baseAmountLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    {overtime.premiumRateLabel} premium
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {overtime.premiumAmountLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Overtime pay
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {formatRateAmount(dtr.totalOvertimeAmount)}
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-4 rounded-lg border bg-background p-4 text-sm text-muted-foreground">
+                            {overtime.formulaLabel}
+                        </div>
+                    )}
                 </div>
 
                 <div className="hidden md:block">
@@ -212,42 +286,6 @@ export default function DtrDetailsDialog({
                         </div>
                     ))}
                 </div>
-
-                <DialogFooter className="gap-2 sm:justify-between">
-                    <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={isDeleting}
-                        onClick={() => onDelete(dtr)}
-                    >
-                        {isDeleting ? 'Deleting...' : 'Delete'}
-                    </Button>
-                    <div className="flex flex-wrap justify-end gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={isDeleting}
-                            onClick={() => onExport(dtr)}
-                        >
-                            Export CSV
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={isDeleting}
-                            onClick={() => onPrint(dtr)}
-                        >
-                            Print
-                        </Button>
-                        <Button
-                            type="button"
-                            disabled={isDeleting}
-                            onClick={() => onReopen(dtr)}
-                        >
-                            Edit
-                        </Button>
-                    </div>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

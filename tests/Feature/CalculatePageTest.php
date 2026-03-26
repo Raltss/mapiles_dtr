@@ -230,6 +230,8 @@ test('authenticated users can confirm and store dtrs', function () {
         ->and($dtr->confirmed_by)->toBe($user->id)
         ->and($dtr->total_days)->toBe(2)
         ->and($dtr->total_worked_minutes)->toBe(900)
+        ->and($dtr->total_overtime_minutes)->toBe(0)
+        ->and((string) $dtr->total_overtime_amount)->toBe('0.00')
         ->and((string) $dtr->total_amount)->toBe('2400.00')
         ->and($entries)->toHaveCount(2)
         ->and($entries[0]->work_date->toDateString())->toBe('2026-03-02')
@@ -243,6 +245,53 @@ test('authenticated users can confirm and store dtrs', function () {
         ->and($entries[1]->holiday_type)->toBe('regularHoliday')
         ->and($entries[1]->worked_minutes)->toBe(420)
         ->and((string) $entries[1]->rate)->toBe('1600.00');
+});
+
+test('overtime totals are computed when worked minutes exceed the scheduled duration', function () {
+    $user = User::factory()->create();
+    $employee = Employee::factory()->create([
+        'daily_rate' => '800.00',
+        'weekly_schedule' => [
+            ['day' => 1, 'start_time' => '09:00:00', 'end_time' => '18:00:00', 'grace_period_minutes' => 5],
+        ],
+        'work_days' => [1],
+    ]);
+
+    $payload = [
+        'employee_id' => $employee->id,
+        'month' => 3,
+        'year' => 2026,
+        'entries' => [
+            [
+                'date' => '2026-03-02',
+                'time_in' => '09:00',
+                'time_out' => '20:00',
+                'holiday_type' => 'none',
+                'base_rate' => '800.00',
+                'rate' => '800.00',
+                'is_absent' => false,
+            ],
+        ],
+    ];
+
+    $this->actingAs($user)
+        ->post(route('calculate.store'), $payload)
+        ->assertRedirect(route('calculate.index', [
+            'employee' => $employee->id,
+            'month' => 3,
+            'year' => 2026,
+        ]));
+
+    $dtr = Dtr::query()->with('entries')->sole();
+    $entry = DtrEntry::query()->sole();
+
+    expect($dtr->total_days)->toBe(1)
+        ->and($dtr->total_worked_minutes)->toBe(600)
+        ->and($dtr->total_overtime_minutes)->toBe(120)
+        ->and((string) $dtr->total_overtime_amount)->toBe('2000.00')
+        ->and((string) $dtr->total_amount)->toBe('2800.00')
+        ->and($entry->worked_minutes)->toBe(600)
+        ->and((string) $entry->rate)->toBe('800.00');
 });
 
 test('late arrivals and half days are computed from the employee schedule', function () {
@@ -343,6 +392,8 @@ test('authenticated users can confirm and store absent days', function () {
 
     expect($dtr->total_days)->toBe(1)
         ->and($dtr->total_worked_minutes)->toBe(0)
+        ->and($dtr->total_overtime_minutes)->toBe(0)
+        ->and((string) $dtr->total_overtime_amount)->toBe('0.00')
         ->and((string) $dtr->total_amount)->toBe('0.00')
         ->and($entry->work_date->toDateString())->toBe('2026-03-03')
         ->and($entry->time_in)->toBeNull()
@@ -417,6 +468,8 @@ test('confirming the same employee and period updates the stored dtr', function 
         ->and(DtrEntry::query()->count())->toBe(1)
         ->and($dtr->total_days)->toBe(1)
         ->and($dtr->total_worked_minutes)->toBe(420)
+        ->and($dtr->total_overtime_minutes)->toBe(0)
+        ->and((string) $dtr->total_overtime_amount)->toBe('0.00')
         ->and((string) $dtr->total_amount)->toBe('1040.00')
         ->and($entry->work_date->toDateString())->toBe('2026-03-02')
         ->and($entry->holiday_type)->toBe('specialWorkingHoliday')
