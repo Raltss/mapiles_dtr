@@ -1,4 +1,4 @@
-import { index as summaryIndex } from '@/routes/summary';
+﻿import { index as summaryIndex } from '@/routes/summary';
 import type { BreadcrumbItem } from '@/types';
 import type { HolidayType } from '../../calculate/helpers/calculate-page';
 
@@ -23,6 +23,10 @@ export type SummaryDtr = {
     year: number;
     totalDays: number;
     totalWorkedMinutes: number;
+    regularAmount: string;
+    dailyRateBasis: string;
+    totalOvertimeMinutes: number;
+    totalOvertimeAmount: string;
     totalAmount: string;
     confirmedAt: string | null;
     entries: SummaryDtrEntry[];

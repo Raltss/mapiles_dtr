@@ -17,8 +17,12 @@ use Inertia\Response;
 class CalculateController extends Controller
 {
     private const WORK_DAYS_PER_MONTH = 26;
+
     private const BREAK_MINUTES_PER_SHIFT = 60;
+
     private const HALF_DAY_THRESHOLD_MINUTES = 180;
+
+    private const OVERTIME_PREMIUM_RATE = 0.25;
 
     public function index(Request $request): Response
     {
@@ -95,6 +99,18 @@ class CalculateController extends Controller
                         ? $this->formatRate(0)
                         : $this->resolvedEntryBaseRate($employee, $entry['base_rate'] ?? null);
                     $holidayType = $isAbsent ? 'none' : (string) $entry['holiday_type'];
+                    $workedMinutes = $isAbsent
+                        ? 0
+                        : $this->resolveWorkedMinutes(
+                            $entry['time_in'] ?? null,
+                            $entry['time_out'] ?? null,
+                        );
+                    $scheduledWorkedMinutes = $isAbsent
+                        ? 0
+                        : $this->resolveWorkedMinutes(
+                            $scheduleDay['startTime'] ?? null,
+                            $scheduleDay['endTime'] ?? null,
+                        );
 
                     return [
                         'work_date' => $entry['date'],
@@ -105,12 +121,7 @@ class CalculateController extends Controller
                             ? null
                             : $this->normalizeEntryTime($entry['time_out'] ?? null),
                         'holiday_type' => $holidayType,
-                        'worked_minutes' => $isAbsent
-                            ? 0
-                            : $this->resolveWorkedMinutes(
-                                $entry['time_in'] ?? null,
-                                $entry['time_out'] ?? null,
-                            ),
+                        'worked_minutes' => $workedMinutes,
                         'base_rate' => $isAbsent
                             ? $this->formatRate(0)
                             : $baseRate,
@@ -123,17 +134,28 @@ class CalculateController extends Controller
                                 $scheduleDay['startTime'] ?? null,
                                 (int) ($scheduleDay['graceMinutes'] ?? 0),
                             ),
+                        'overtime_minutes' => $isAbsent
+                            ? 0
+                            : max(0, $workedMinutes - $scheduledWorkedMinutes),
                     ];
                 });
 
+            $regularAmount = (float) $preparedEntries->sum(
+                fn (array $entry): float => (float) ($entry['rate'] ?? 0),
+            );
+            $totalOvertimeMinutes = (int) $preparedEntries->sum('overtime_minutes');
+            $totalOvertimeAmount = $this->computedOvertimeAmount(
+                $employee,
+                $totalOvertimeMinutes,
+            );
             $attributes = [
                 'confirmed_by' => $request->user()?->id,
                 'total_days' => $preparedEntries->count(),
                 'total_worked_minutes' => $preparedEntries->sum('worked_minutes'),
+                'total_overtime_minutes' => $totalOvertimeMinutes,
+                'total_overtime_amount' => $this->formatRate($totalOvertimeAmount),
                 'total_amount' => $this->formatRate(
-                    $preparedEntries->sum(
-                        fn (array $entry): float => (float) ($entry['rate'] ?? 0),
-                    ),
+                    $regularAmount + $totalOvertimeAmount,
                 ),
             ];
 
@@ -152,7 +174,15 @@ class CalculateController extends Controller
             }
 
             $dtr->entries()->delete();
-            $dtr->entries()->createMany($preparedEntries->all());
+            $dtr->entries()->createMany(
+                $preparedEntries
+                    ->map(function (array $entry): array {
+                        unset($entry['overtime_minutes']);
+
+                        return $entry;
+                    })
+                    ->all(),
+            );
         });
 
         $redirectQuery = [
@@ -341,6 +371,23 @@ class CalculateController extends Controller
         $lateMinutes = max(0, $actualTimeInMinutes - $scheduledTimeInMinutes - max(0, $graceMinutes));
 
         return $this->formatRate(max(0, $adjustedRate - $lateMinutes));
+    }
+
+    protected function computedOvertimeAmount(Employee $employee, int $totalOvertimeMinutes): float
+    {
+        if ($totalOvertimeMinutes <= 0) {
+            return 0;
+        }
+
+        $dailyRate = $this->resolvedDailyRate($employee);
+
+        if ($dailyRate === '') {
+            return 0;
+        }
+
+        $baseOvertimeAmount = ($totalOvertimeMinutes / 60) * (float) $dailyRate;
+
+        return $baseOvertimeAmount * (1 + self::OVERTIME_PREMIUM_RATE);
     }
 
     protected function adjustedEntryRate(?string $baseRate, string $holidayType): ?float

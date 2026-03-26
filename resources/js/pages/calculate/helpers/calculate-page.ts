@@ -1,4 +1,4 @@
-import { index as calculateIndex } from '@/routes/calculate';
+﻿import { index as calculateIndex } from '@/routes/calculate';
 import type { BreadcrumbItem } from '@/types';
 
 export type EmployeeScheduleDay = {
@@ -75,6 +75,23 @@ export type MonthDay = {
     graceMinutes: number;
 };
 
+export type OvertimeSummaryBreakdown = {
+    totalMinutes: number;
+    totalDurationLabel: string;
+    totalHours: number;
+    totalHoursLabel: string;
+    rateBasis: string;
+    rateBasisLabel: string;
+    baseAmount: number;
+    baseAmountLabel: string;
+    premiumRateLabel: string;
+    premiumAmount: number;
+    premiumAmountLabel: string;
+    totalAmount: number;
+    totalAmountLabel: string;
+    formulaLabel: string;
+};
+
 export function createAttendanceEntry(
     defaults: AttendanceDefaults = {},
 ): AttendanceEntry {
@@ -115,6 +132,7 @@ export const holidayOptions: Array<{ label: string; value: HolidayType }> = [
 export const daysPerPage = 7;
 export const breakMinutesPerShift = 60;
 export const halfDayThresholdMinutes = 180;
+export const overtimePremiumRate = 0.25;
 
 function formatDatePart(value: number): string {
     return value.toString().padStart(2, '0');
@@ -175,6 +193,23 @@ export function getWorkedMinutes(
     return Math.max(0, totalWorkedMinutes - breakMinutesPerShift);
 }
 
+export function getOvertimeMinutes(
+    workedMinutes: number | null,
+    scheduledTimeIn: string,
+    scheduledTimeOut: string,
+): number {
+    const scheduledWorkedMinutes = getWorkedMinutes(
+        scheduledTimeIn,
+        scheduledTimeOut,
+    );
+
+    if (workedMinutes === null || scheduledWorkedMinutes === null) {
+        return 0;
+    }
+
+    return Math.max(0, workedMinutes - scheduledWorkedMinutes);
+}
+
 export function formatWorkedDuration(totalMinutes: number | null): string {
     if (totalMinutes === null) {
         return '--';
@@ -188,6 +223,13 @@ export function formatWorkedDuration(totalMinutes: number | null): string {
     }
 
     return `${hours}h ${minutes}m`;
+}
+
+export function formatDecimalHours(value: number): string {
+    return value.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
 }
 
 export function getHolidayMultiplier(holidayType: HolidayType): number {
@@ -204,8 +246,9 @@ export function getHolidayMultiplier(holidayType: HolidayType): number {
 
 export function getHolidayLabel(holidayType: HolidayType): string {
     return (
-        holidayOptions.find((holidayOption) => holidayOption.value === holidayType)
-            ?.label ?? 'None'
+        holidayOptions.find(
+            (holidayOption) => holidayOption.value === holidayType,
+        )?.label ?? 'None'
     );
 }
 
@@ -220,6 +263,45 @@ export function formatRateAmount(value: number | string): string {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     })}`;
+}
+
+export function buildOvertimeSummary(
+    totalMinutes: number,
+    dailyRate: string,
+): OvertimeSummaryBreakdown {
+    const parsedRateBasis = Number(dailyRate);
+    const hasRateBasis =
+        dailyRate.trim() !== '' && Number.isFinite(parsedRateBasis);
+    const safeRateBasis = hasRateBasis ? parsedRateBasis : 0;
+    const totalHours = totalMinutes / 60;
+    const baseAmount = totalHours * safeRateBasis;
+    const premiumAmount = baseAmount * overtimePremiumRate;
+    const totalAmount = baseAmount + premiumAmount;
+
+    let formulaLabel = 'No overtime minutes were recorded for this DTR.';
+
+    if (totalMinutes > 0 && !hasRateBasis) {
+        formulaLabel = `${totalMinutes} overtime minutes were recorded, but the employee daily rate is unavailable so overtime pay stays ${formatRateAmount(0)}.`;
+    } else if (totalMinutes > 0) {
+        formulaLabel = `${totalMinutes} mins / 60 = ${formatDecimalHours(totalHours)} hours. ${formatDecimalHours(totalHours)} x ${formatRateAmount(safeRateBasis)} = ${formatRateAmount(baseAmount)}. ${formatRateAmount(baseAmount)} + 25% (${formatRateAmount(premiumAmount)}) = ${formatRateAmount(totalAmount)}.`;
+    }
+
+    return {
+        totalMinutes,
+        totalDurationLabel: formatWorkedDuration(totalMinutes),
+        totalHours,
+        totalHoursLabel: `${formatDecimalHours(totalHours)} hours`,
+        rateBasis: hasRateBasis ? safeRateBasis.toFixed(2) : '',
+        rateBasisLabel: hasRateBasis ? formatRateAmount(safeRateBasis) : '--',
+        baseAmount,
+        baseAmountLabel: formatRateAmount(baseAmount),
+        premiumRateLabel: `${Math.round(overtimePremiumRate * 100)}%`,
+        premiumAmount,
+        premiumAmountLabel: formatRateAmount(premiumAmount),
+        totalAmount,
+        totalAmountLabel: formatRateAmount(totalAmount),
+        formulaLabel,
+    };
 }
 
 export function getAdjustedDailyRate(
@@ -270,7 +352,9 @@ export function isHalfDayTimeIn(
         return false;
     }
 
-    return actualTimeInMinutes >= scheduledTimeInMinutes + halfDayThresholdMinutes;
+    return (
+        actualTimeInMinutes >= scheduledTimeInMinutes + halfDayThresholdMinutes
+    );
 }
 
 export function getComputedDailyRate(

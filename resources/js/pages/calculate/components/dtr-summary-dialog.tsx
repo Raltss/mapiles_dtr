@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+﻿import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -24,18 +24,20 @@ export default function DtrSummaryDialog({
     onConfirm,
     summary,
 }: DtrSummaryDialogProps) {
+    const hasOvertime = summary.overtime.totalMinutes > 0;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>DTR Summary</DialogTitle>
                     <DialogDescription>
-                        Review the daily entries below before confirming this
-                        DTR.
+                        Review the daily entries and overtime computation below
+                        before confirming this DTR.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <div className="rounded-lg border p-4">
                         <p className="text-sm text-muted-foreground">
                             Employee
@@ -45,9 +47,7 @@ export default function DtrSummaryDialog({
                         </p>
                     </div>
                     <div className="rounded-lg border p-4">
-                        <p className="text-sm text-muted-foreground">
-                            Period
-                        </p>
+                        <p className="text-sm text-muted-foreground">Period</p>
                         <p className="mt-1 font-medium text-foreground">
                             {summary.monthLabel} {summary.year}
                         </p>
@@ -70,12 +70,80 @@ export default function DtrSummaryDialog({
                     </div>
                     <div className="rounded-lg border p-4">
                         <p className="text-sm text-muted-foreground">
-                            Total rate
+                            Regular pay
+                        </p>
+                        <p className="mt-1 font-medium text-foreground">
+                            {summary.regularAmountLabel}
+                        </p>
+                    </div>
+
+                    <div className="rounded-lg border p-4">
+                        <p className="text-sm text-muted-foreground">
+                            Total pay
                         </p>
                         <p className="mt-1 font-medium text-foreground">
                             {summary.totalAmountLabel}
                         </p>
                     </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/10 p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                            <p className="font-medium text-foreground">
+                                Overtime computation
+                            </p>
+                        </div>
+                    </div>
+
+                    {hasOvertime ? (
+                        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Overtime hours
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {summary.overtime.totalHoursLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Daily rate basis
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {summary.overtime.rateBasisLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Base overtime
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {summary.overtime.baseAmountLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border bg-background p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    {summary.overtime.premiumRateLabel} premium
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {summary.overtime.premiumAmountLabel}
+                                </p>
+                            </div>
+                            <div className="rounded-lg border p-4">
+                                <p className="text-sm text-muted-foreground">
+                                    Overtime pay
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {summary.overtime.totalAmountLabel}
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-4 rounded-lg border bg-background p-4 text-sm text-muted-foreground">
+                            {summary.overtime.formulaLabel}
+                        </div>
+                    )}
                 </div>
 
                 <div className="hidden md:block">
@@ -107,7 +175,7 @@ export default function DtrSummaryDialog({
                                 {summary.entries.map((entry) => (
                                     <tr
                                         key={entry.key}
-                                        className="border-b align-top odd:bg-muted/10 last:border-b-0"
+                                        className="border-b align-top last:border-b-0 odd:bg-muted/10"
                                     >
                                         <td className="px-4 py-3">
                                             <div className="font-medium text-foreground">
